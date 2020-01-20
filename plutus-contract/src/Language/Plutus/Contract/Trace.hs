@@ -671,7 +671,7 @@ defaultDist :: InitialDistribution
 defaultDist = defaultDistFor allWallets
 
 defaultDistFor :: [EM.Wallet] -> InitialDistribution
-defaultDistFor wallets = Map.fromList $ zip wallets (repeat (Ada.lovelaceValueOf 10000))
+defaultDistFor wallets = Map.fromList $ zip wallets (repeat (Ada.adaValueOf 10000))
 
 makeClassyPrisms ''TraceError
 

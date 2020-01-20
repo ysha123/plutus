@@ -36,12 +36,16 @@ library
     bytestring,
     containers -any,
     deriving-aeson -any,
+    lens,
     mtl,
     newtype-generics,
     template-haskell -any,
     plutus-tx -any,
     plutus-contract -any,
     plutus-ledger,
+    language-plutus-core,
+    plutus-contract,
+    prettyprinter,
     text,
     vector,
     sbv >= 8.4,
@@ -56,6 +60,8 @@ library
     Language.Marlowe
     Language.Marlowe.Semantics
     Language.Marlowe.Client
+    Language.Marlowe.Client2
+    Language.Marlowe.Client3
     Language.Marlowe.Util
     Language.Marlowe.Pretty
     Language.Marlowe.Analysis.FSSemantics
@@ -88,6 +94,7 @@ test-suite marlowe-test
         OldAnalysis.IntegerArray
         OldAnalysis.MkSymb
         OldAnalysis.Numbering
+        Spec.Marlowe.Marlowe2
       -- Spec.Actus
     build-depends:
         aeson -any,
@@ -95,6 +102,7 @@ test-suite marlowe-test
         containers -any,
         hedgehog -any,
         hint -any,
+        prettyprinter,
         lens -any,
         memory -any,
         bytestring -any,

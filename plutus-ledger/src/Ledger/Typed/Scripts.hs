@@ -50,7 +50,7 @@ data ScriptInstance (a :: Type) =
         --   is run in this transaction
         , instanceMPS     :: MonetaryPolicy
         }
-    deriving (Eq, Generic, ToJSON, FromJSON)
+    deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 -- | The 'ScriptInstance' of a validator script and its wrapper.
 validator ::

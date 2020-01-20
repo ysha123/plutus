@@ -30,6 +30,7 @@ import           GHC.Generics               (Generic)
 import           Ledger                     (Block, Blockchain, Slot (..), Tx (..), TxId, txId)
 import qualified Ledger.Index               as Index
 import qualified Ledger.Interval            as Interval
+import Debug.Trace
 
 -- | Events produced by the blockchain emulator.
 data ChainEvent =
@@ -122,7 +123,8 @@ validateBlock slot@(Slot s) idx txns =
     let
         -- Select those transactions that can be validated in the
         -- current slot
-        (eligibleTxns, rest) = partition (canValidateNow slot) txns
+        (eligibleTxns1, rest) = partition (canValidateNow slot) txns
+        eligibleTxns = trace ("eligibleTxns " <> show eligibleTxns1) eligibleTxns1
 
         -- Validate eligible transactions, updating the UTXO index each time
         processed =
@@ -137,13 +139,15 @@ validateBlock slot@(Slot s) idx txns =
         -- Also return an `EmulatorEvent` for each transaction that was
         -- processed
         nextSlot = Slot (s + 1)
-        events   = (reverse (uncurry mkValidationEvent <$> processed)) ++ [SlotAdd nextSlot]
+        events1   = (reverse (uncurry mkValidationEvent <$> processed)) ++ [SlotAdd nextSlot]
+        events = trace ("Events " <> show events1) events1
 
     in ValidatedBlock block events rest
 
 -- | Check whether the given transaction can be validated in the given slot.
 canValidateNow :: Slot -> Tx -> Bool
-canValidateNow slot tx = Interval.member slot (txValidRange tx)
+canValidateNow slot tx = do
+    trace (show slot <> show (txValidRange tx)) $ Interval.member slot (txValidRange tx)
 
 mkValidationEvent :: Tx -> Maybe Index.ValidationError -> ChainEvent
 mkValidationEvent t result =
