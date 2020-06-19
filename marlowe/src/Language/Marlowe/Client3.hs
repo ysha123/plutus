@@ -89,6 +89,13 @@ marloweContract2 = do
         -- traceM $ "Here cont " <> show cont
         createContract params cont
         void apply
+    sub = do
+        params <- endpoint @"sub" @MarloweParams @MarloweSchema
+        let inst = scriptInstance params
+            address = (Scripts.scriptAddress inst)
+        txs <- nextTransactionsAt address
+        traceM $ (show txs)
+        void apply
     apply = do
         -- traceM "Here apply"
         (params, inputs) <- endpoint @"apply-inputs" @(MarloweParams, [Input]) @MarloweSchema
@@ -166,10 +173,32 @@ defaultMarloweParams = marloweParams adaSymbol
 
 {-# INLINABLE transition #-}
 transition :: MarloweParams -> SM.State MarloweData -> [Input] -> SlotRange -> Maybe (TxConstraints Void Void, SM.State MarloweData)
-transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=currentValue} inputs range = do
+transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptInValue} inputs range = do
     let interval = case range of
             Interval (LowerBound (Finite l) True) (UpperBound (Finite h) True) -> (l, h)
             _ -> P.traceErrorH "Tx valid slot must have lower bound and upper bounds"
+
+    let positiveBalances = validateBalances marloweState ||
+            P.traceErrorH "Invalid contract state. There exists an account with non positive balance"
+
+    {-  We do not check that a transaction contains exact input payments.
+        We only require an evidence from a party, e.g. a signature for PubKey party,
+        or a spend of a 'party role' token.
+        This gives huge flexibility by allowing parties to provide multiple
+        inputs (either other contracts or P2PKH).
+        Then, we check scriptOutput to be correct.
+     -}
+    let inputsConstraints = validateInputs params inputs
+
+    -- total balance of all accounts in State
+    -- accounts must be positive, and we checked it above
+    let inputBalance = totalBalance (accounts marloweState)
+
+    -- ensure that a contract TxOut has what it suppose to have
+    let balancesOk = inputBalance == scriptInValue
+
+    let preconditionsOk = P.traceIfFalseH "Preconditions are false" $ positiveBalances && balancesOk
+
     let txInput = TransactionInput {
             txInterval = interval,
             txInputs = inputs }
@@ -193,11 +222,24 @@ transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=currentV
                         totalPayouts = foldMap (\(Payment _ v) -> v) txOutPayments
                         finalBalance = totalIncome P.- totalPayouts
                         in (txWithPayouts, finalBalance)
-
-            Just (deducedTxOutputs, SM.State marloweData finalBalance)
+            if preconditionsOk then Just (inputsConstraints <> deducedTxOutputs, SM.State marloweData finalBalance)
+            else Nothing
         Error txError -> Nothing
 
   where
+    validateInputWitness :: CurrencySymbol -> Input -> TxConstraints Void Void
+    validateInputWitness rolesCurrency input =
+        case input of
+            IDeposit _ party _ _         -> validatePartyWitness party
+            IChoice (ChoiceId _ party) _ -> validatePartyWitness party
+            INotify                      -> mempty
+      where
+        validatePartyWitness (PK pk)     = mustBeSignedBy pk
+        validatePartyWitness (Role role) = mustSpendValue (Val.singleton rolesCurrency role 1)
+
+    validateInputs :: MarloweParams -> [Input] -> TxConstraints Void Void
+    validateInputs MarloweParams{..} = foldMap (validateInputWitness rolesCurrency)
+
     collectDeposits (IDeposit _ _ (Token cur tok) amount) = Val.singleton cur tok amount
     collectDeposits _                    = P.zero
 

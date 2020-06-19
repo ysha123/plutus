@@ -38,8 +38,33 @@ tests = testGroup "token account"
     ,  -}zeroCouponBondTest
     ]
 
-
 zeroCouponBondTest :: TestTree
+zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
+    (assertNoFailedTransactions
+    /\ assertDone w1 (const True) "contract should close"
+    /\ walletFundsChange alice (adaValueOf (-850))
+    /\ walletFundsChange bob (adaValueOf (850))
+    ) $ do
+    -- Init a contract
+    let alicePk = PK $ (pubKeyHash $ walletPubKey alice)
+        aliceAcc = AccountId 0 alicePk
+        bobPk = PK $ (pubKeyHash $ walletPubKey bob)
+
+    let params = defaultMarloweParams
+
+    let zeroCouponBond = When [ Case
+            (Deposit aliceAcc alicePk ada (Constant 850_000_000))
+            (Pay aliceAcc (Party bobPk) ada (Constant 850_000_000)
+                Close)] (Slot 100) Close
+    callEndpoint @"create" alice (params, zeroCouponBond)
+    notifySlot alice
+    handleBlockchainEvents alice
+    callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
+    notifySlot alice
+    handleBlockchainEvents alice
+
+
+{- zeroCouponBondTest :: TestTree
 zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
     (assertNoFailedTransactions
     -- /\ emulatorLog (const False) ""
@@ -94,6 +119,10 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     -- notifySlot bob
     -- callEndpoint @"sub" alice (alicePk)
     -- callEndpoint @"sub" bob (alicePk)
+    callEndpoint @"sub" bob (params)
+    addBlocks 3
+    notifySlot bob
+    handleBlockchainEvents bob
     callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
     addBlocks 3
     notifySlot alice
@@ -102,7 +131,7 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     handleBlockchainEvents bob
     -- callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc bobPk ada 850_000_000])
     -- handleBlockchainEvents bob
-
+ -}
 
 
 w1, w2 :: Wallet
