@@ -81,7 +81,8 @@ marloweContract2 :: forall e. (AsContractError e
     )
     => Contract MarloweSchema e ()
 marloweContract2 = do
-    create `select` apply {- <|> void sub -}
+    -- create `select` apply {- <|> void sub -}
+    (create `select` sub) >> apply
   where
     create = do
         -- traceM "Here create"
@@ -100,7 +101,7 @@ marloweContract2 = do
         -- traceM "Here apply"
         (params, inputs) <- endpoint @"apply-inputs" @(MarloweParams, [Input]) @MarloweSchema
         -- traceM $ "Here endpoint " <> show inputs
-        MarloweData{..} <- applyInputs params inputs
+        MarloweData{..}  <- applyInputs params inputs
         case marloweContract of
             Close -> pure ()
             _ -> void apply
