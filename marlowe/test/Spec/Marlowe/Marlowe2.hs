@@ -35,7 +35,7 @@ tests = testGroup "token account"
         )
         (  callEndpoint @"create" w1 (defaultMarloweParams, Close)
            >> handleBlockchainEvents w1 )
-    ,  -}zeroCouponBondTest
+    ,  -}zeroCouponBondTest1
     ]
 
 zeroCouponBondTest :: TestTree
@@ -64,8 +64,8 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     handleBlockchainEvents alice
 
 
-{- zeroCouponBondTest :: TestTree
-zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
+zeroCouponBondTest1 :: TestTree
+zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
     (assertNoFailedTransactions
     -- /\ emulatorLog (const False) ""
     /\ assertDone w1 (const True) "contract should close"
@@ -87,6 +87,7 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
                     [ Case (Deposit aliceAcc bobPk ada (Constant 1000_000_000)) Close] (Slot 200) Close
                 ))] (Slot 100) Close
     callEndpoint @"create" alice (params, zeroCouponBond)
+    callEndpoint @"sub" bob (params)
     -- notifyInterestingAddresses alice
     -- notifyInterestingAddresses bob
     -- addBlocks 10
@@ -102,7 +103,6 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     addBlocks 5
     notifySlot alice
     handleBlockchainEvents alice
-    handleUtxoQueries alice
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
     addBlocks 3
@@ -119,7 +119,6 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     -- notifySlot bob
     -- callEndpoint @"sub" alice (alicePk)
     -- callEndpoint @"sub" bob (alicePk)
-    callEndpoint @"sub" bob (params)
     addBlocks 3
     notifySlot bob
     handleBlockchainEvents bob
@@ -131,7 +130,6 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     handleBlockchainEvents bob
     -- callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc bobPk ada 850_000_000])
     -- handleBlockchainEvents bob
- -}
 
 
 w1, w2 :: Wallet
