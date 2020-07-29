@@ -87,49 +87,35 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
                     [ Case (Deposit aliceAcc bobPk ada (Constant 1000_000_000)) Close] (Slot 200) Close
                 ))] (Slot 100) Close
     callEndpoint @"create" alice (params, zeroCouponBond)
-    callEndpoint @"sub" bob (params)
-    -- notifyInterestingAddresses alice
-    -- notifyInterestingAddresses bob
-    -- addBlocks 10
+    -- callEndpoint @"sub" bob (params)
+
+    addBlocks 1
     notifySlot alice
+    -- notifySlot bob
     handleBlockchainEvents alice
     -- handleBlockchainEvents bob
-    -- notifySlot bob
-    -- callEndpoint @"sub" alice (alicePk)
-    -- callEndpoint @"sub" bob (alicePk)
-    -- callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
-    -- callEndpoint @"apply-inputs" alice (params, [])
+    notifyInterestingAddresses alice
     -- notifyInterestingAddresses bob
-    addBlocks 5
-    notifySlot alice
-    handleBlockchainEvents alice
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
-    addBlocks 3
-    notifySlot alice
-    notifySlot bob
-    handleBlockchainEvents alice
-    handleBlockchainEvents bob
 
-    addBlocks 3
+    addBlocks 1
     notifySlot alice
+    notifySlot bob
+    handleBlockchainEvents alice
+    handleBlockchainEvents bob
     notifyInterestingAddresses alice
-    handleBlockchainEvents alice
-    -- handleBlockchainEvents bob
-    -- notifySlot bob
-    -- callEndpoint @"sub" alice (alicePk)
-    -- callEndpoint @"sub" bob (alicePk)
-    addBlocks 3
-    notifySlot bob
-    handleBlockchainEvents bob
+    notifyInterestingAddresses bob
+
     callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
-    addBlocks 3
+
+    addBlocks 1
     notifySlot alice
     notifySlot bob
     handleBlockchainEvents alice
     handleBlockchainEvents bob
-    -- callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc bobPk ada 850_000_000])
-    -- handleBlockchainEvents bob
+    notifyInterestingAddresses alice
+    notifyInterestingAddresses bob
 
 
 w1, w2 :: Wallet

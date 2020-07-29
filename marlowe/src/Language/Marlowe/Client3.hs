@@ -82,14 +82,14 @@ marloweContract2 :: forall e. (AsContractError e
     => Contract MarloweSchema e ()
 marloweContract2 = do
     -- create `select` apply {- <|> void sub -}
-    (create `select` sub) >> apply
+    (create `select` sub)
   where
     create = do
         -- traceM "Here create"
         (params, cont) <- endpoint @"create" @(MarloweParams, Marlowe.Contract) @MarloweSchema
         -- traceM $ "Here cont " <> show cont
         createContract params cont
-        void apply
+        apply
     sub = do
         params <- endpoint @"sub" @MarloweParams @MarloweSchema
         let inst = scriptInstance params
@@ -177,10 +177,10 @@ transition :: MarloweParams -> SM.State MarloweData -> [Input] -> SlotRange -> M
 transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptInValue} inputs range = do
     let interval = case range of
             Interval (LowerBound (Finite l) True) (UpperBound (Finite h) True) -> (l, h)
-            _ -> P.traceErrorH "Tx valid slot must have lower bound and upper bounds"
+            _ -> P.traceError "Tx valid slot must have lower bound and upper bounds"
 
     let positiveBalances = validateBalances marloweState ||
-            P.traceErrorH "Invalid contract state. There exists an account with non positive balance"
+            P.traceError "Invalid contract state. There exists an account with non positive balance"
 
     {-  We do not check that a transaction contains exact input payments.
         We only require an evidence from a party, e.g. a signature for PubKey party,
@@ -198,7 +198,7 @@ transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptIn
     -- ensure that a contract TxOut has what it suppose to have
     let balancesOk = inputBalance == scriptInValue
 
-    let preconditionsOk = P.traceIfFalseH "Preconditions are false" $ positiveBalances && balancesOk
+    let preconditionsOk = P.traceIfFalse "Preconditions are false" $ positiveBalances && balancesOk
 
     let txInput = TransactionInput {
             txInterval = interval,
