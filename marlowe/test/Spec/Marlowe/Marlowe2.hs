@@ -87,7 +87,6 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
                     [ Case (Deposit aliceAcc bobPk ada (Constant 1000_000_000)) Close] (Slot 200) Close
                 ))] (Slot 100) Close
     callEndpoint @"create" alice (params, zeroCouponBond)
-    -- callEndpoint @"sub" bob (params)
 
     addBlocks 1
     notifySlot alice
@@ -99,25 +98,31 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     addBlocks 1
     handleBlockchainEvents alice
 
+    callEndpoint @"sub" bob (params)
+    handleBlockchainEvents bob
+
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
 
-    -- addBlocks 1
-    -- notifySlot alice
-    -- notifySlot bob
-    -- handleBlockchainEvents alice
-    -- handleBlockchainEvents bob
-    -- notifyInterestingAddresses alice
-    -- notifyInterestingAddresses bob
+    handleBlockchainEvents alice
+    addBlocks 1
+    handleBlockchainEvents alice
+    notifySlot alice
+    notifySlot bob
+    handleBlockchainEvents bob
+    notifyInterestingAddresses alice
+    notifyInterestingAddresses bob
 
-    -- callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
+    callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
 
-    -- addBlocks 1
-    -- notifySlot alice
-    -- notifySlot bob
-    -- handleBlockchainEvents alice
-    -- handleBlockchainEvents bob
-    -- notifyInterestingAddresses alice
-    -- notifyInterestingAddresses bob
+    handleBlockchainEvents alice
+    handleBlockchainEvents bob
+    addBlocks 1
+    notifySlot alice
+    notifySlot bob
+    handleBlockchainEvents alice
+    handleBlockchainEvents bob
+    notifyInterestingAddresses alice
+    notifyInterestingAddresses bob
 
 
 w1, w2 :: Wallet
