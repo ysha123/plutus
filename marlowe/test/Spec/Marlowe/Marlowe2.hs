@@ -67,7 +67,7 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
 zeroCouponBondTest1 :: TestTree
 zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
     (assertNoFailedTransactions
-    -- /\ emulatorLog (const False) ""
+    /\ emulatorLog (const False) ""
     /\ assertDone w1 (const True) "contract should close"
     -- /\ assertDone w2 (const True) "contract should close"
     -- /\ walletFundsChange bob (adaValueOf (-150))
@@ -96,26 +96,28 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     -- handleBlockchainEvents bob
     notifyInterestingAddresses alice
     -- notifyInterestingAddresses bob
+    addBlocks 1
+    handleBlockchainEvents alice
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
 
-    addBlocks 1
-    notifySlot alice
-    notifySlot bob
-    handleBlockchainEvents alice
-    handleBlockchainEvents bob
-    notifyInterestingAddresses alice
-    notifyInterestingAddresses bob
+    -- addBlocks 1
+    -- notifySlot alice
+    -- notifySlot bob
+    -- handleBlockchainEvents alice
+    -- handleBlockchainEvents bob
+    -- notifyInterestingAddresses alice
+    -- notifyInterestingAddresses bob
 
-    callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
+    -- callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
 
-    addBlocks 1
-    notifySlot alice
-    notifySlot bob
-    handleBlockchainEvents alice
-    handleBlockchainEvents bob
-    notifyInterestingAddresses alice
-    notifyInterestingAddresses bob
+    -- addBlocks 1
+    -- notifySlot alice
+    -- notifySlot bob
+    -- handleBlockchainEvents alice
+    -- handleBlockchainEvents bob
+    -- notifyInterestingAddresses alice
+    -- notifyInterestingAddresses bob
 
 
 w1, w2 :: Wallet
