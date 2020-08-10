@@ -1,32 +1,32 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeApplications #-}
+
 {-# OPTIONS -fplugin Language.PlutusTx.Plugin -fplugin-opt Language.PlutusTx.Plugin:defer-errors -fplugin-opt Language.PlutusTx.Plugin:no-context #-}
 
 module Plugin.Laziness.Spec where
 
-import           Common
-import           PlcTestUtils
-import           Plugin.Lib
-
-import qualified Language.PlutusTx.Builtins   as Builtins
-import           Language.PlutusTx.Code
-import           Language.PlutusTx.Plugin
-
+import Common
+import Data.Proxy
 import qualified Language.PlutusCore.Universe as PLC
-
-import           Data.Proxy
+import qualified Language.PlutusTx.Builtins as Builtins
+import Language.PlutusTx.Code
+import Language.PlutusTx.Plugin
+import PlcTestUtils
+import Plugin.Lib
 
 -- this module does lots of weird stuff deliberately
-{-# ANN module ("HLint: ignore"::String) #-}
+{-# ANN module ("HLint: ignore" :: String) #-}
 
 laziness :: TestNested
-laziness = testNested "Laziness" [
-    goldenPir "joinError" joinErrorPir
-    , goldenEval "joinErrorEval" [ getProgram joinErrorPir, getProgram $ plc (Proxy @"T") True, getProgram $ plc (Proxy @"F") False]
-    , goldenPir "lazyDepUnit" lazyDepUnit
-  ]
+laziness =
+  testNested
+    "Laziness"
+    [ goldenPir "joinError" joinErrorPir,
+      goldenEval "joinErrorEval" [getProgram joinErrorPir, getProgram $ plc (Proxy @"T") True, getProgram $ plc (Proxy @"F") False],
+      goldenPir "lazyDepUnit" lazyDepUnit
+    ]
 
 joinErrorPir :: CompiledCode PLC.DefaultUni (Bool -> Bool -> ())
 joinErrorPir = plc (Proxy @"joinError") joinError

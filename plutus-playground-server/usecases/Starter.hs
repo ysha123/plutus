@@ -1,17 +1,19 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NoImplicitPrelude          #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+
 module Starter where
+
 -- TRIM TO HERE
 -- This is a starter contract, based on the Game contract,
 -- containing the bare minimum required scaffolding.
@@ -26,23 +28,28 @@ module Starter where
 --   * publish
 --   * redeem
 
-import           Control.Monad              (void)
-import qualified Language.PlutusTx          as PlutusTx
-import           Language.PlutusTx.Prelude  hiding (Applicative (..))
-import           Ledger                     (Address, ValidatorCtx,
-                                             scriptAddress)
-import           Ledger.Value               (Value)
-import           Playground.Contract
-import           Language.Plutus.Contract
+import Control.Monad (void)
+import Language.Plutus.Contract
+import qualified Language.PlutusTx as PlutusTx
+import Language.PlutusTx.Prelude hiding (Applicative (..))
+import Ledger
+  ( Address,
+    ValidatorCtx,
+    scriptAddress,
+  )
 import qualified Ledger.Constraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Value (Value)
+import Playground.Contract
 
 -- | These are the data script and redeemer types. We are using an integer
 --   value for both, but you should define your own types.
-newtype MyDatum = MyDatum Integer deriving newtype PlutusTx.IsData
+newtype MyDatum = MyDatum Integer deriving newtype (PlutusTx.IsData)
+
 PlutusTx.makeLift ''MyDatum
 
-newtype MyRedeemer = MyRedeemer Integer deriving newtype PlutusTx.IsData
+newtype MyRedeemer = MyRedeemer Integer deriving newtype (PlutusTx.IsData)
+
 PlutusTx.makeLift ''MyRedeemer
 
 -- | This method is the spending validator (which gets lifted to
@@ -55,22 +62,25 @@ contractAddress :: Address
 contractAddress = Ledger.scriptAddress (Scripts.validatorScript starterInstance)
 
 data Starter
+
 instance Scripts.ScriptType Starter where
-    type instance RedeemerType Starter = MyRedeemer
-    type instance DatumType Starter = MyDatum
+  type RedeemerType Starter = MyRedeemer
+  type DatumType Starter = MyDatum
 
 -- | The script instance is the compiled validator (ready to go onto the chain)
 starterInstance :: Scripts.ScriptInstance Starter
-starterInstance = Scripts.validator @Starter
-    $$(PlutusTx.compile [|| validateSpend ||])
-    $$(PlutusTx.compile [|| wrap ||]) where
-        wrap = Scripts.wrapValidator @MyDatum @MyRedeemer
+starterInstance =
+  Scripts.validator @Starter
+    $$(PlutusTx.compile [||validateSpend||])
+    $$(PlutusTx.compile [||wrap||])
+  where
+    wrap = Scripts.wrapValidator @MyDatum @MyRedeemer
 
 -- | The schema of the contract, with two endpoints.
 type Schema =
-    BlockchainActions
-        .\/ Endpoint "publish" (Integer, Value)
-        .\/ Endpoint "redeem" Integer
+  BlockchainActions
+    .\/ Endpoint "publish" (Integer, Value)
+    .\/ Endpoint "redeem" Integer
 
 contract :: AsContractError e => Contract Schema e ()
 contract = publish `select` redeem
@@ -78,18 +88,18 @@ contract = publish `select` redeem
 -- | The "publish" contract endpoint.
 publish :: AsContractError e => Contract Schema e ()
 publish = do
-    (i, lockedFunds) <- endpoint @"publish"
-    let tx = Constraints.mustPayToTheScript (MyDatum i) lockedFunds
-    void $ submitTxConstraints starterInstance tx
+  (i, lockedFunds) <- endpoint @"publish"
+  let tx = Constraints.mustPayToTheScript (MyDatum i) lockedFunds
+  void $ submitTxConstraints starterInstance tx
 
 -- | The "redeem" contract endpoint.
 redeem :: AsContractError e => Contract Schema e ()
 redeem = do
-    myRedeemerValue <- endpoint @"redeem"
-    unspentOutputs <- utxoAt contractAddress
-    let redeemer = MyRedeemer myRedeemerValue
-        tx       = collectFromScript unspentOutputs redeemer
-    void $ submitTxConstraintsSpending starterInstance unspentOutputs tx
+  myRedeemerValue <- endpoint @"redeem"
+  unspentOutputs <- utxoAt contractAddress
+  let redeemer = MyRedeemer myRedeemerValue
+      tx = collectFromScript unspentOutputs redeemer
+  void $ submitTxConstraintsSpending starterInstance unspentOutputs tx
 
 endpoints :: AsContractError e => Contract Schema e ()
 endpoints = contract

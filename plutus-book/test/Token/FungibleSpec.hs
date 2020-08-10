@@ -1,35 +1,33 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Token.FungibleSpec (spec) where
 
-import           Utils
-
-import           Token.Fungible
-
-import qualified Language.PlutusTx.Numeric  as P
-import           Ledger
-import qualified Ledger.Ada                 as A
-import qualified Ledger.Value               as V
-import           Wallet.Emulator
-
-import           Control.Monad              (replicateM_, void)
+import Control.Monad (replicateM_, void)
 import qualified Data.ByteString.Lazy.Char8 as C
-import           Data.Either                (isRight)
-import           Data.Text                  (Text)
-import           Test.Hspec
+import Data.Either (isRight)
+import Data.Text (Text)
+import qualified Language.PlutusTx.Numeric as P
+import Ledger
+import qualified Ledger.Ada as A
+import qualified Ledger.Value as V
+import Test.Hspec
+import Token.Fungible
+import Utils
+import Wallet.Emulator
 
 {-# ANN spec ("HLint: ignore Reduce duplication" :: Text) #-}
 spec :: Spec
 spec = do
-    describe "forge" $
-        it "forges" $
-            fst (getResult tr1) `shouldSatisfy` isRight
-    describe "buy/sell" $ do
-        it "works if both parties pay" $
-            fst (getResult tr2) `shouldSatisfy` isRight
-        it "works if buyer doesn't pay" $
-            fst (getResult tr3) `shouldSatisfy` isRight
-        it "works if seller doesn't pay" $
-            fst (getResult tr4) `shouldSatisfy` isRight
+  describe "forge" $
+    it "forges" $
+      fst (getResult tr1) `shouldSatisfy` isRight
+  describe "buy/sell" $ do
+    it "works if both parties pay" $
+      fst (getResult tr2) `shouldSatisfy` isRight
+    it "works if buyer doesn't pay" $
+      fst (getResult tr3) `shouldSatisfy` isRight
+    it "works if seller doesn't pay" $
+      fst (getResult tr4) `shouldSatisfy` isRight
   where
     plutus :: String
     plutus = "Plutus"
@@ -49,54 +47,56 @@ spec = do
 
     tr1, tr2, tr3, tr4 :: Trace MockWallet ()
     tr1 = void $ do
-        updateWallets
-        void $ walletAction w1 $ forge plutus p1
-        updateWallets
-        updateWallets
-        assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
+      updateWallets
+      void $ walletAction w1 $ forge plutus p1
+      updateWallets
+      updateWallets
+      assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
     tr2 = void $ do
-        updateWallets
-        void $ walletAction w1 $ forge plutus p1
-        updateWallets
-        updateWallets
-        void $ walletAction w1 sell'
-        void $ walletAction w2 buy'
-        updateWallets
-        updateWallets
-        assertOwnFundsEq w1 $
-            (A.toValue initialAda <> plutusValue p1 <> price)
-                P.- plutusValue p2
-        assertOwnFundsEq w2 $
-            (A.toValue initialAda <> plutusValue p2)
-                P.- price
+      updateWallets
+      void $ walletAction w1 $ forge plutus p1
+      updateWallets
+      updateWallets
+      void $ walletAction w1 sell'
+      void $ walletAction w2 buy'
+      updateWallets
+      updateWallets
+      assertOwnFundsEq w1 $
+        (A.toValue initialAda <> plutusValue p1 <> price)
+          P.- plutusValue p2
+      assertOwnFundsEq w2 $
+        (A.toValue initialAda <> plutusValue p2)
+          P.- price
     tr3 = void $ do
-        updateWallets
-        void $ walletAction w1 $ forge plutus p1
-        updateWallets
-        updateWallets
-        void $ walletAction w1 sell'
-        replicateM_ 13 updateWallets
-        assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
-        assertOwnFundsEq w2 $ A.toValue initialAda
+      updateWallets
+      void $ walletAction w1 $ forge plutus p1
+      updateWallets
+      updateWallets
+      void $ walletAction w1 sell'
+      replicateM_ 13 updateWallets
+      assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
+      assertOwnFundsEq w2 $ A.toValue initialAda
     tr4 = void $ do
-        updateWallets
-        void $ walletAction w1 $ forge plutus p1
-        updateWallets
-        updateWallets
-        void $ walletAction w2 buy'
-        replicateM_ 13 updateWallets
-        assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
-        assertOwnFundsEq w2 $ A.toValue initialAda
+      updateWallets
+      void $ walletAction w1 $ forge plutus p1
+      updateWallets
+      updateWallets
+      void $ walletAction w2 buy'
+      replicateM_ 13 updateWallets
+      assertOwnFundsEq w1 $ A.toValue initialAda <> plutusValue p1
+      assertOwnFundsEq w2 $ A.toValue initialAda
 
     sell', buy' :: MockWallet ()
-    sell' = sell
+    sell' =
+      sell
         key1
         plutus
         p2
         price
         key2
         sl
-    buy' = buy
+    buy' =
+      buy
         key1
         plutus
         p2
@@ -104,14 +104,14 @@ spec = do
         price
         sl
 
-
 plutusName :: String
 plutusName = "Plutus"
 
 plutusFungible :: Fungible
-plutusFungible = Fungible
-    { name   = V.TokenName $ C.pack plutusName
-    , issuer = key1
+plutusFungible =
+  Fungible
+    { name = V.TokenName $ C.pack plutusName,
+      issuer = key1
     }
 
 plutusValue :: Integer -> Value

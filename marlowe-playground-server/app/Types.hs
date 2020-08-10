@@ -1,17 +1,18 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Types
-  ( Config(..)
-  ) where
+  ( Config (..),
+  )
+where
 
 import qualified Auth
-import           Data.Aeson     (FromJSON, parseJSON, withObject, (.:))
+import Data.Aeson (FromJSON, parseJSON, withObject, (.:))
 import qualified Marlowe.Config as MC
 
 data Config = Config
-  { _authConfig    :: Auth.Config
-  , _marloweConfig :: MC.Config
+  { _authConfig :: Auth.Config,
+    _marloweConfig :: MC.Config
   }
 
 instance FromJSON Config where

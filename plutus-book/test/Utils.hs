@@ -1,31 +1,31 @@
 module Utils
-    ( w1
-    , w2
-    , w3
-    , w4
-    , key1
-    , key2
-    , key3
-    , key4
-    , initialAda
-    , getResult
-    , getTraceLog
-    , traceLog
-    , updateWallets
-    , assertFunds2
-    , assertFunds3
-    ) where
+  ( w1,
+    w2,
+    w3,
+    w4,
+    key1,
+    key2,
+    key3,
+    key4,
+    initialAda,
+    getResult,
+    getTraceLog,
+    traceLog,
+    updateWallets,
+    assertFunds2,
+    assertFunds3,
+  )
+where
 
-import           Ledger
-import           Ledger.Ada
-import           Wallet.Emulator
-import           Wallet.Emulator.Generators
-import           Wallet.Generators
-
-import           Control.Arrow              (first)
-import           Control.Monad              (forM_, void)
-import qualified Data.Map.Strict            as Map
-import           Debug.Trace                (traceM)
+import Control.Arrow (first)
+import Control.Monad (forM_, void)
+import qualified Data.Map.Strict as Map
+import Debug.Trace (traceM)
+import Ledger
+import Ledger.Ada
+import Wallet.Emulator
+import Wallet.Emulator.Generators
+import Wallet.Generators
 
 w1, w2, w3, w4 :: Wallet
 w1 = Wallet 1
@@ -44,11 +44,11 @@ initialAda = lovelaceOf 100000
 
 initialChain :: Mockchain
 initialChain =
-    let (txn, ot) = genInitialTransaction generatorModel
-        tid      = txId txn
-    in  Mockchain {
-            mockchainInitialBlock = [txn],
-            mockchainUtxo = Map.fromList $ first (TxOutRef tid) <$> zip [0..] ot
+  let (txn, ot) = genInitialTransaction generatorModel
+      tid = txId txn
+   in Mockchain
+        { mockchainInitialBlock = [txn],
+          mockchainUtxo = Map.fromList $ first (TxOutRef tid) <$> zip [0 ..] ot
         }
 
 updateWallets :: Trace MockWallet ()
@@ -65,11 +65,11 @@ traceLog tr = forM_ (getTraceLog tr) $ traceM . show
 
 assertFunds2 :: Ada -> Ada -> Trace MockWallet ()
 assertFunds2 ada1 ada2 = do
-    assertOwnFundsEq w1 $ toValue ada1
-    assertOwnFundsEq w2 $ toValue ada2
+  assertOwnFundsEq w1 $ toValue ada1
+  assertOwnFundsEq w2 $ toValue ada2
 
 assertFunds3 :: Ada -> Ada -> Ada -> Trace MockWallet ()
 assertFunds3 ada1 ada2 ada3 = do
-    assertOwnFundsEq w1 $ toValue ada1
-    assertOwnFundsEq w2 $ toValue ada2
-    assertOwnFundsEq w3 $ toValue ada3
+  assertOwnFundsEq w1 $ toValue ada1
+  assertOwnFundsEq w2 $ toValue ada2
+  assertOwnFundsEq w3 $ toValue ada3

@@ -1,12 +1,12 @@
 module Language.PlutusCore.Pretty.Default
-    ( prettyPlcDef
-    , displayPlcDef
-    , displayPlcCondensedErrorClassic
-    ) where
+  ( prettyPlcDef,
+    displayPlcDef,
+    displayPlcCondensedErrorClassic,
+  )
+where
 
-import           PlutusPrelude
-
-import           Language.PlutusCore.Pretty.Plc
+import Language.PlutusCore.Pretty.Plc
+import PlutusPrelude
 
 -- | Pretty-print a value in the default mode using the classic view.
 prettyPlcDef :: PrettyPlc a => a -> Doc ann
@@ -19,4 +19,4 @@ displayPlcDef = render . prettyPlcClassicDef
 -- | Render an error to 'String' in the condensed manner using the classic view.
 displayPlcCondensedErrorClassic :: (PrettyPlc a, Render str) => a -> str
 displayPlcCondensedErrorClassic =
-    render . prettyPlcCondensedErrorBy defPrettyConfigPlcClassic
+  render . prettyPlcCondensedErrorBy defPrettyConfigPlcClassic

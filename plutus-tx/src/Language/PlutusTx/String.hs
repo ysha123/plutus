@@ -4,11 +4,10 @@
 
 module Language.PlutusTx.String (stringToBuiltinString) where
 
+import Data.String (IsString (..))
+import qualified GHC.Magic as Magic
 import qualified Language.PlutusTx.Builtins as Builtins
 
-import           Data.String                (IsString (..))
-
-import qualified GHC.Magic                  as Magic
 {- Note [noinline hack]
 For some functions we have two conflicting desires:
 - We want to have the unfolding available for the plugin.
@@ -28,15 +27,15 @@ an unfolding.
 -- We can't put this in `Builtins.hs`, since that force `O0` deliberately, which prevents
 -- the unfoldings from going in. So we just stick it here. Fiddly.
 instance IsString Builtins.String where
-    -- Try and make sure the dictionary selector goes away, it's simpler to match on
-    -- the application of 'stringToBuiltinString'
-    {-# INLINE fromString #-}
-    -- See Note [noinline hack]
-    fromString = Magic.noinline stringToBuiltinString
+  -- Try and make sure the dictionary selector goes away, it's simpler to match on
+  -- the application of 'stringToBuiltinString'
+  {-# INLINE fromString #-}
+  -- See Note [noinline hack]
+  fromString = Magic.noinline stringToBuiltinString
 
-{-# INLINABLE stringToBuiltinString #-}
+{-# INLINEABLE stringToBuiltinString #-}
 stringToBuiltinString :: String -> Builtins.String
 stringToBuiltinString = go
-    where
-        go []     = Builtins.emptyString
-        go (x:xs) = Builtins.charToString x `Builtins.appendString` go xs
+  where
+    go [] = Builtins.emptyString
+    go (x : xs) = Builtins.charToString x `Builtins.appendString` go xs

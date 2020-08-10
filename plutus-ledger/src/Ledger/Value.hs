@@ -1,86 +1,93 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE DerivingVia           #-}
-{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedLists       #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
--- Prevent unboxing, which the plugin can't deal with
-{-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
 {-# OPTIONS_GHC -fno-spec-constr #-}
 {-# OPTIONS_GHC -fno-specialise #-}
+-- Prevent unboxing, which the plugin can't deal with
+{-# OPTIONS_GHC -fno-strictness #-}
+
 -- | Functions for working with 'Value'.
-module Ledger.Value(
-    -- ** Currency symbols
-      CurrencySymbol(..)
-    , currencySymbol
-    , mpsSymbol
-    , currencyMPSHash
+module Ledger.Value
+  ( -- ** Currency symbols
+    CurrencySymbol (..),
+    currencySymbol,
+    mpsSymbol,
+    currencyMPSHash,
+
     -- ** Token names
-    , TokenName(..)
-    , tokenName
-    , toString
+    TokenName (..),
+    tokenName,
+    toString,
+
     -- ** Value
-    , Value(..)
-    , singleton
-    , valueOf
-    , scale
-    , symbols
-      -- * Partial order operations
-    , geq
-    , gt
-    , leq
-    , lt
-      -- * Etc.
-    , isZero
-    , split
-    ) where
+    Value (..),
+    singleton,
+    valueOf,
+    scale,
+    symbols,
 
-import qualified Prelude                          as Haskell
+    -- * Partial order operations
+    geq,
+    gt,
+    leq,
+    lt,
 
-import           Codec.Serialise.Class            (Serialise)
-import           Data.Aeson                       (FromJSON, FromJSONKey, ToJSON, ToJSONKey, (.:))
-import qualified Data.Aeson                       as JSON
-import qualified Data.Aeson.Extras                as JSON
-import qualified Data.ByteString.Lazy             as BSL
-import qualified Data.ByteString.Lazy.Char8       as C8
-import           Data.Hashable                    (Hashable)
-import           Data.String                      (IsString (fromString))
-import qualified Data.Text                        as Text
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Extras
-import           GHC.Generics                     (Generic)
-import           IOTS                             (IotsType)
-import qualified Language.PlutusTx                as PlutusTx
-import qualified Language.PlutusTx.AssocMap       as Map
-import qualified Language.PlutusTx.Builtins       as Builtins
-import           Language.PlutusTx.Lift           (makeLift)
-import           Language.PlutusTx.Prelude
-import           Language.PlutusTx.These
-import           Ledger.Orphans                   ()
-import           Ledger.Scripts                   (MonetaryPolicyHash (..))
-import           LedgerBytes                      (LedgerBytes (LedgerBytes))
+    -- * Etc.
+    isZero,
+    split,
+  )
+where
 
-newtype CurrencySymbol = CurrencySymbol { unCurrencySymbol :: Builtins.ByteString }
-    deriving (IsString, Show, Serialise, Pretty) via LedgerBytes
-    deriving stock (Generic)
-    deriving newtype (Haskell.Eq, Haskell.Ord, Eq, Ord, PlutusTx.IsData)
-    deriving anyclass (Hashable, ToJSONKey, FromJSONKey,  IotsType)
+import Codec.Serialise.Class (Serialise)
+import Data.Aeson (FromJSON, FromJSONKey, ToJSON, ToJSONKey, (.:))
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Extras as JSON
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as C8
+import Data.Hashable (Hashable)
+import Data.String (IsString (fromString))
+import qualified Data.Text as Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Extras
+import GHC.Generics (Generic)
+import IOTS (IotsType)
+import qualified Language.PlutusTx as PlutusTx
+import qualified Language.PlutusTx.AssocMap as Map
+import qualified Language.PlutusTx.Builtins as Builtins
+import Language.PlutusTx.Lift (makeLift)
+import Language.PlutusTx.Prelude
+import Language.PlutusTx.These
+import Ledger.Orphans ()
+import Ledger.Scripts (MonetaryPolicyHash (..))
+import LedgerBytes (LedgerBytes (LedgerBytes))
+import qualified Prelude as Haskell
+
+newtype CurrencySymbol = CurrencySymbol {unCurrencySymbol :: Builtins.ByteString}
+  deriving (IsString, Show, Serialise, Pretty) via LedgerBytes
+  deriving stock (Generic)
+  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, Ord, PlutusTx.IsData)
+  deriving anyclass (Hashable, ToJSONKey, FromJSONKey, IotsType)
 
 instance ToJSON CurrencySymbol where
   toJSON currencySymbol =
     JSON.object
-      [ ( "unCurrencySymbol"
-        , JSON.String .
-          JSON.encodeByteString .
-          BSL.toStrict . unCurrencySymbol $
-          currencySymbol)
+      [ ( "unCurrencySymbol",
+          JSON.String
+            . JSON.encodeByteString
+            . BSL.toStrict
+            . unCurrencySymbol
+            $ currencySymbol
+        )
       ]
 
 instance FromJSON CurrencySymbol where
@@ -92,26 +99,28 @@ instance FromJSON CurrencySymbol where
 
 makeLift ''CurrencySymbol
 
-{-# INLINABLE mpsSymbol #-}
+{-# INLINEABLE mpsSymbol #-}
+
 -- | The currency symbol of a monetay policy hash
 mpsSymbol :: MonetaryPolicyHash -> CurrencySymbol
 mpsSymbol (MonetaryPolicyHash h) = CurrencySymbol h
 
-{-# INLINABLE currencyMPSHash #-}
+{-# INLINEABLE currencyMPSHash #-}
+
 -- | The monetary policy hash of a currency symbol
 currencyMPSHash :: CurrencySymbol -> MonetaryPolicyHash
 currencyMPSHash (CurrencySymbol h) = MonetaryPolicyHash h
 
-{-# INLINABLE currencySymbol #-}
+{-# INLINEABLE currencySymbol #-}
 currencySymbol :: ByteString -> CurrencySymbol
 currencySymbol = CurrencySymbol
 
-newtype TokenName = TokenName { unTokenName :: Builtins.ByteString }
-    deriving (Serialise) via LedgerBytes
-    deriving stock (Generic)
-    deriving newtype (Haskell.Eq, Haskell.Ord, Eq, Ord, PlutusTx.IsData)
-    deriving anyclass (Hashable,  IotsType)
-    deriving Pretty via (PrettyShow TokenName)
+newtype TokenName = TokenName {unTokenName :: Builtins.ByteString}
+  deriving (Serialise) via LedgerBytes
+  deriving stock (Generic)
+  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, Ord, PlutusTx.IsData)
+  deriving anyclass (Hashable, IotsType)
+  deriving (Pretty) via (PrettyShow TokenName)
 
 instance IsString TokenName where
   fromString = TokenName . C8.pack
@@ -123,19 +132,19 @@ instance Show TokenName where
   show = toString
 
 instance ToJSON TokenName where
-    toJSON tokenName =
-        JSON.object
-        [ ( "unTokenName", JSON.toJSON $ toString tokenName)]
+  toJSON tokenName =
+    JSON.object
+      [("unTokenName", JSON.toJSON $ toString tokenName)]
 
 instance FromJSON TokenName where
-    parseJSON =
-        JSON.withObject "TokenName" $ \object -> do
-        raw <- object .: "unTokenName"
-        Haskell.pure . fromString . Text.unpack $ raw
+  parseJSON =
+    JSON.withObject "TokenName" $ \object -> do
+      raw <- object .: "unTokenName"
+      Haskell.pure . fromString . Text.unpack $ raw
 
 makeLift ''TokenName
 
-{-# INLINABLE tokenName #-}
+{-# INLINEABLE tokenName #-}
 tokenName :: ByteString -> TokenName
 tokenName = TokenName
 
@@ -154,59 +163,62 @@ tokenName = TokenName
 -- taken to be zero.
 --
 -- See note [Currencies] for more details.
-newtype Value = Value { getValue :: Map.Map CurrencySymbol (Map.Map TokenName Integer) }
-    deriving stock (Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, Hashable, IotsType)
-    deriving newtype (Serialise, PlutusTx.IsData)
-    deriving Pretty via (PrettyShow Value)
+newtype Value = Value {getValue :: Map.Map CurrencySymbol (Map.Map TokenName Integer)}
+  deriving stock (Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, Hashable, IotsType)
+  deriving newtype (Serialise, PlutusTx.IsData)
+  deriving (Pretty) via (PrettyShow Value)
 
 -- Orphan instances for 'Map' to make this work
 instance (ToJSON v, ToJSON k) => ToJSON (Map.Map k v) where
-    toJSON = JSON.toJSON . Map.toList
+  toJSON = JSON.toJSON . Map.toList
 
 instance (FromJSON v, FromJSON k) => FromJSON (Map.Map k v) where
-    parseJSON v = Map.fromList Haskell.<$> JSON.parseJSON v
+  parseJSON v = Map.fromList Haskell.<$> JSON.parseJSON v
 
 deriving anyclass instance (Hashable k, Hashable v) => Hashable (Map.Map k v)
+
 deriving anyclass instance (Serialise k, Serialise v) => Serialise (Map.Map k v)
 
 makeLift ''Value
 
 instance Haskell.Eq Value where
-    (==) = eq
+  (==) = eq
 
 instance Eq Value where
-    {-# INLINABLE (==) #-}
-    (==) = eq
+  {-# INLINEABLE (==) #-}
+  (==) = eq
 
 -- No 'Ord Value' instance since 'Value' is only a partial order, so 'compare' can't
 -- do the right thing in some cases.
 
 instance Haskell.Semigroup Value where
-    (<>) = unionWith (+)
+  (<>) = unionWith (+)
 
 instance Semigroup Value where
-    {-# INLINABLE (<>) #-}
-    (<>) = unionWith (+)
+  {-# INLINEABLE (<>) #-}
+  (<>) = unionWith (+)
 
 instance Haskell.Monoid Value where
-    mempty = Value Map.empty
+  mempty = Value Map.empty
 
 instance Monoid Value where
-    {-# INLINABLE mempty #-}
-    mempty = Value Map.empty
+  {-# INLINEABLE mempty #-}
+  mempty = Value Map.empty
 
 instance Group Value where
-    {-# INLINABLE inv #-}
-    inv = scale @Integer @Value (-1)
+  {-# INLINEABLE inv #-}
+  inv = scale @Integer @Value (-1)
 
 deriving via (Additive Value) instance AdditiveSemigroup Value
+
 deriving via (Additive Value) instance AdditiveMonoid Value
+
 deriving via (Additive Value) instance AdditiveGroup Value
 
 instance Module Integer Value where
-    {-# INLINABLE scale #-}
-    scale i (Value xs) = Value (fmap (fmap (\i' -> i * i')) xs)
+  {-# INLINEABLE scale #-}
+  scale i (Value xs) = Value (fmap (fmap (\i' -> i * i')) xs)
 
 {- note [Currencies]
 
@@ -226,102 +238,108 @@ similar to 'Ledger.Ada' for their own currencies.
 
 -}
 
-{-# INLINABLE valueOf #-}
+{-# INLINEABLE valueOf #-}
+
 -- | Get the quantity of the given currency in the 'Value'.
 valueOf :: Value -> CurrencySymbol -> TokenName -> Integer
 valueOf (Value mp) cur tn =
-    case Map.lookup cur mp of
-        Nothing -> 0 :: Integer
-        Just i  -> case Map.lookup tn i of
-            Nothing -> 0
-            Just v  -> v
+  case Map.lookup cur mp of
+    Nothing -> 0 :: Integer
+    Just i -> case Map.lookup tn i of
+      Nothing -> 0
+      Just v -> v
 
-{-# INLINABLE symbols #-}
+{-# INLINEABLE symbols #-}
+
 -- | The list of 'CurrencySymbol's of a 'Value'.
 symbols :: Value -> [CurrencySymbol]
 symbols (Value mp) = Map.keys mp
 
-{-# INLINABLE singleton #-}
+{-# INLINEABLE singleton #-}
+
 -- | Make a 'Value' containing only the given quantity of the given currency.
 singleton :: CurrencySymbol -> TokenName -> Integer -> Value
 singleton c tn i = Value (Map.singleton c (Map.singleton tn i))
 
-{-# INLINABLE unionVal #-}
+{-# INLINEABLE unionVal #-}
+
 -- | Combine two 'Value' maps
 unionVal :: Value -> Value -> Map.Map CurrencySymbol (Map.Map TokenName (These Integer Integer))
 unionVal (Value l) (Value r) =
-    let
-        combined = Map.union l r
-        unThese k = case k of
-            This a    -> This <$> a
-            That b    -> That <$> b
-            These a b -> Map.union a b
-    in unThese <$> combined
+  let combined = Map.union l r
+      unThese k = case k of
+        This a -> This <$> a
+        That b -> That <$> b
+        These a b -> Map.union a b
+   in unThese <$> combined
 
-{-# INLINABLE unionWith #-}
+{-# INLINEABLE unionWith #-}
 unionWith :: (Integer -> Integer -> Integer) -> Value -> Value -> Value
 unionWith f ls rs =
-    let
-        combined = unionVal ls rs
-        unThese k' = case k' of
-            This a    -> f a 0
-            That b    -> f 0 b
-            These a b -> f a b
-    in Value (fmap (fmap unThese) combined)
+  let combined = unionVal ls rs
+      unThese k' = case k' of
+        This a -> f a 0
+        That b -> f 0 b
+        These a b -> f a b
+   in Value (fmap (fmap unThese) combined)
 
 -- Num operations
 
-{-# INLINABLE isZero #-}
+{-# INLINEABLE isZero #-}
+
 -- | Check whether a 'Value' is zero.
 isZero :: Value -> Bool
 isZero (Value xs) = Map.all (Map.all (\i -> 0 == i)) xs
 
-{-# INLINABLE checkPred #-}
+{-# INLINEABLE checkPred #-}
 checkPred :: (These Integer Integer -> Bool) -> Value -> Value -> Bool
 checkPred f l r =
-    let
-      inner :: Map.Map TokenName (These Integer Integer) -> Bool
+  let inner :: Map.Map TokenName (These Integer Integer) -> Bool
       inner = Map.all f
-    in
-      Map.all inner (unionVal l r)
+   in Map.all inner (unionVal l r)
 
-{-# INLINABLE checkBinRel #-}
+{-# INLINEABLE checkBinRel #-}
+
 -- | Check whether a binary relation holds for value pairs of two 'Value' maps,
 --   supplying 0 where a key is only present in one of them.
 checkBinRel :: (Integer -> Integer -> Bool) -> Value -> Value -> Bool
 checkBinRel f l r =
-    let
-        unThese k' = case k' of
-            This a    -> f a 0
-            That b    -> f 0 b
-            These a b -> f a b
-    in checkPred unThese l r
+  let unThese k' = case k' of
+        This a -> f a 0
+        That b -> f 0 b
+        These a b -> f a b
+   in checkPred unThese l r
 
-{-# INLINABLE geq #-}
+{-# INLINEABLE geq #-}
+
 -- | Check whether one 'Value' is greater than or equal to another. See 'Value' for an explanation of how operations on 'Value's work.
 geq :: Value -> Value -> Bool
 -- If both are zero then checkBinRel will be vacuously true, but this is fine.
 geq = checkBinRel (>=)
 
-{-# INLINABLE gt #-}
+{-# INLINEABLE gt #-}
+
 -- | Check whether one 'Value' is strictly greater than another. See 'Value' for an explanation of how operations on 'Value's work.
 gt :: Value -> Value -> Bool
 -- If both are zero then checkBinRel will be vacuously true. So we have a special case.
 gt l r = not (isZero l && isZero r) && checkBinRel (>) l r
 
-{-# INLINABLE leq #-}
+{-# INLINEABLE leq #-}
+
 -- | Check whether one 'Value' is less than or equal to another. See 'Value' for an explanation of how operations on 'Value's work.
 leq :: Value -> Value -> Bool
 -- If both are zero then checkBinRel will be vacuously true, but this is fine.
 leq = checkBinRel (<=)
 
-{-# INLINABLE lt #-}
+{-# INLINEABLE lt #-}
+
 -- | Check whether one 'Value' is strictly less than another. See 'Value' for an explanation of how operations on 'Value's work.
 lt :: Value -> Value -> Bool
 -- If both are zero then checkBinRel will be vacuously true. So we have a special case.
 lt l r = not (isZero l && isZero r) && checkBinRel (<) l r
 
-{-# INLINABLE eq #-}
+{-# INLINEABLE eq #-}
+
 -- | Check whether one 'Value' is equal to another. See 'Value' for an explanation of how operations on 'Value's work.
 eq :: Value -> Value -> Bool
 -- If both are zero then checkBinRel will be vacuously true, but this is fine.
@@ -332,11 +350,12 @@ eq = checkBinRel (==)
 --   contains the positive parts.
 --
 --   @negate (fst (split a)) `plus` (snd (split a)) == a@
---
 split :: Value -> (Value, Value)
-split (Value mp) = (negate (Value neg), Value pos) where
-  (neg, pos) = Map.mapThese splitIntl mp
+split (Value mp) = (negate (Value neg), Value pos)
+  where
+    (neg, pos) = Map.mapThese splitIntl mp
 
-  splitIntl :: Map.Map TokenName Integer -> These (Map.Map TokenName Integer) (Map.Map TokenName Integer)
-  splitIntl mp' = These l r where
-    (l, r) = Map.mapThese (\i -> if i <= 0 then This i else That i) mp'
+    splitIntl :: Map.Map TokenName Integer -> These (Map.Map TokenName Integer) (Map.Map TokenName Integer)
+    splitIntl mp' = These l r
+      where
+        (l, r) = Map.mapThese (\i -> if i <= 0 then This i else That i) mp'

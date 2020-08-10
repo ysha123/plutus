@@ -1,22 +1,28 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Data.Text.Prettyprint.Doc.Custom ( brackets'
-                                        , braces'
-                                        , vsep'
-                                        , parens'
-                                        , (</>)
-                                        , (<//>)
-                                        ) where
+module Data.Text.Prettyprint.Doc.Custom
+  ( brackets',
+    braces',
+    vsep',
+    parens',
+    (</>),
+    (<//>),
+  )
+where
 
-import           Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc
 
 infixr 5 </>
+
 infixr 5 <//>
 
 -- | This operator prints @a@ and then prints @b@ indented on a new line
-(<//>) :: Doc a -- ^ @a@
-       -> Doc a -- ^ @b@
-       -> Doc a
+(<//>) ::
+  -- | @a@
+  Doc a ->
+  -- | @b@
+  Doc a ->
+  Doc a
 (<//>) d d' = d <> hardline <> indent 2 d'
 
 -- | This prints both documents on the same line separated by a space if they

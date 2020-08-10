@@ -1,8 +1,9 @@
-{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeOperators    #-}
-module Language.PlutusTx.Lift (
-    makeLift,
+{-# LANGUAGE TypeOperators #-}
+
+module Language.PlutusTx.Lift
+  ( makeLift,
     safeLift,
     safeLiftProgram,
     safeLiftCode,
@@ -13,78 +14,106 @@ module Language.PlutusTx.Lift (
     liftCode,
     constCode,
     typeCheckAgainst,
-    typeCode) where
+    typeCode,
+  )
+where
 
-import           Language.PlutusTx.Code
-import           Language.PlutusTx.Lift.Class                  (makeLift)
-import qualified Language.PlutusTx.Lift.Class                  as Lift
-import           Language.PlutusTx.Lift.Instances              ()
-
-import           Language.PlutusIR
-import           Language.PlutusIR.Compiler
-import           Language.PlutusIR.Compiler.Definitions
-import qualified Language.PlutusIR.MkPir                       as PIR
-
-import qualified Language.PlutusCore                           as PLC
-import qualified Language.PlutusCore.Constant.Dynamic          as PLC
-import           Language.PlutusCore.Pretty                    (PrettyConst)
-import           Language.PlutusCore.Quote
-import qualified Language.PlutusCore.StdLib.Data.Function      as PLC
+import Codec.Serialise
+import Control.Exception
+import Control.Monad.Except hiding (lift)
+import Control.Monad.Reader hiding (lift)
+import Data.Proxy
+import qualified Data.Typeable as GHC
+import qualified Language.PlutusCore as PLC
+import qualified Language.PlutusCore.Constant.Dynamic as PLC
+import Language.PlutusCore.Pretty (PrettyConst)
+import Language.PlutusCore.Quote
+import qualified Language.PlutusCore.StdLib.Data.Function as PLC
 import qualified Language.PlutusCore.StdLib.Meta.Data.Function as PLC
-
-import           Codec.Serialise
-import           Control.Exception
-import           Control.Monad.Except                          hiding (lift)
-import           Control.Monad.Reader                          hiding (lift)
-
-import           Data.Proxy
-import qualified Data.Typeable                                 as GHC
+import Language.PlutusIR
+import Language.PlutusIR.Compiler
+import Language.PlutusIR.Compiler.Definitions
+import qualified Language.PlutusIR.MkPir as PIR
+import Language.PlutusTx.Code
+import Language.PlutusTx.Lift.Class (makeLift)
+import qualified Language.PlutusTx.Lift.Class as Lift
+import Language.PlutusTx.Lift.Instances ()
 
 type Throwable uni = (PLC.GShow uni, PLC.GEq uni, PLC.DefaultUni PLC.<: uni, PLC.Closed uni, uni `PLC.Everywhere` PrettyConst, GHC.Typeable uni)
 
 -- | Get a Plutus Core term corresponding to the given value.
-safeLift
-    :: (Lift.Lift uni a, AsError e uni (Provenance ()), MonadError e m, MonadQuote m,
-        PLC.GShow uni, PLC.GEq uni , PLC.DefaultUni PLC.<: uni)
-    => a -> m (PLC.Term TyName Name uni ())
+safeLift ::
+  ( Lift.Lift uni a,
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  a ->
+  m (PLC.Term TyName Name uni ())
 safeLift x = do
-    lifted <- liftQuote $ runDefT () $ Lift.lift x
-    compiled <- flip runReaderT defaultCompilationCtx $ compileTerm lifted
-    pure $ void compiled
+  lifted <- liftQuote $ runDefT () $ Lift.lift x
+  compiled <- flip runReaderT defaultCompilationCtx $ compileTerm lifted
+  pure $ void compiled
 
 -- | Get a Plutus Core program corresponding to the given value.
-safeLiftProgram
-    :: (Lift.Lift uni a, AsError e uni (Provenance ()), MonadError e m, MonadQuote m,
-        PLC.GShow uni, PLC.GEq uni , PLC.DefaultUni PLC.<: uni)
-    => a -> m (PLC.Program TyName Name uni ())
+safeLiftProgram ::
+  ( Lift.Lift uni a,
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  a ->
+  m (PLC.Program TyName Name uni ())
 safeLiftProgram x = PLC.Program () (PLC.defaultVersion ()) <$> safeLift x
 
-safeLiftCode
-    :: (Lift.Lift uni a, AsError e uni (Provenance ()), MonadError e m, MonadQuote m,
-        PLC.GShow uni, PLC.GEq uni , PLC.DefaultUni PLC.<: uni)
-    => a -> m (CompiledCode uni a)
+safeLiftCode ::
+  ( Lift.Lift uni a,
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  a ->
+  m (CompiledCode uni a)
 safeLiftCode x = DeserializedCode <$> safeLiftProgram x <*> pure Nothing
 
-safeConstCode
-    :: ( Lift.Typeable uni a, AsError e uni (Provenance ()), MonadError e m, MonadQuote m
-       , PLC.Closed uni, uni `PLC.Everywhere` Serialise, PLC.GShow uni, PLC.GEq uni , PLC.DefaultUni PLC.<: uni)
-    => Proxy a
-    -> CompiledCode uni b
-    -> m (CompiledCode uni (a -> b))
+safeConstCode ::
+  ( Lift.Typeable uni a,
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.Closed uni,
+    uni `PLC.Everywhere` Serialise,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  Proxy a ->
+  CompiledCode uni b ->
+  m (CompiledCode uni (a -> b))
 safeConstCode proxy code = do
-    newTerm <- liftQuote $ runDefT () $ do
-        term <- Lift.lift code
-        ty <- Lift.typeRep proxy
-        pure $ TyInst () (PLC.constPartial term) ty
-    compiled <- flip runReaderT defaultCompilationCtx $ compileTerm newTerm
-    pure $ DeserializedCode (PLC.Program () (PLC.defaultVersion ()) (void compiled)) Nothing
+  newTerm <- liftQuote $
+    runDefT () $ do
+      term <- Lift.lift code
+      ty <- Lift.typeRep proxy
+      pure $ TyInst () (PLC.constPartial term) ty
+  compiled <- flip runReaderT defaultCompilationCtx $ compileTerm newTerm
+  pure $ DeserializedCode (PLC.Program () (PLC.defaultVersion ()) (void compiled)) Nothing
 
 unsafely :: Throwable uni => ExceptT (Error uni (Provenance ())) Quote a -> a
 unsafely ma = runQuote $ do
-    run <- runExceptT ma
-    case run of
-        Left e  -> throw e
-        Right t -> pure t
+  run <- runExceptT ma
+  case run of
+    Left e -> throw e
+    Right t -> pure t
 
 -- | Get a Plutus Core term corresponding to the given value, throwing any errors that occur as exceptions and ignoring fresh names.
 lift :: (Lift.Lift uni a, Throwable uni) => a -> PLC.Term TyName Name uni ()
@@ -103,11 +132,11 @@ liftCode :: (Lift.Lift uni a, Throwable uni) => a -> CompiledCode uni a
 liftCode x = unsafely $ safeLiftCode x
 
 -- | Creates a program that ignores an argument of the given type and returns the program given.
-constCode
-    :: (Lift.Typeable uni a, Throwable uni, uni `PLC.Everywhere` Serialise)
-    => Proxy a
-    -> CompiledCode uni b
-    -> CompiledCode uni (a -> b)
+constCode ::
+  (Lift.Typeable uni a, Throwable uni, uni `PLC.Everywhere` Serialise) =>
+  Proxy a ->
+  CompiledCode uni b ->
+  CompiledCode uni (a -> b)
 constCode proxy b = unsafely $ safeConstCode proxy b
 
 {- Note [Checking the type of a term with Typeable]
@@ -123,40 +152,49 @@ iff the original term has the given type. We opt for `(\x : <the type> -> x) ter
 -}
 
 -- | Check that PLC term has the given type.
-typeCheckAgainst
-    :: forall e a uni m .
-       ( Lift.Typeable uni a
-       , PLC.AsTypeError e uni (Provenance ()), AsError e uni (Provenance ())
-       , MonadError e m, MonadQuote m
-       , PLC.GShow uni, PLC.GEq uni, PLC.DefaultUni PLC.<: uni
-       )
-    => Proxy a
-    -> PLC.Term PLC.TyName PLC.Name uni ()
-    -> m ()
+typeCheckAgainst ::
+  forall e a uni m.
+  ( Lift.Typeable uni a,
+    PLC.AsTypeError e uni (Provenance ()),
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  Proxy a ->
+  PLC.Term PLC.TyName PLC.Name uni () ->
+  m ()
 typeCheckAgainst p plcTerm = do
-    -- See Note [Checking the type of a term with Typeable]
-    term <- PIR.embed <$> PLC.rename plcTerm
-    -- We need to run Def *before* applying to the term, otherwise we may refer to abstract
-    -- types and we won't match up with the term.
-    idFun <- liftQuote $ runDefT () $ do
-        ty <- Lift.typeRep p
-        pure $ TyInst () PLC.idFun ty
-    let applied = Apply () idFun term
-    compiled <- flip runReaderT defaultCompilationCtx $ compileTerm applied
-    types <- PLC.getStringBuiltinTypes noProvenance
-    void $ PLC.inferType (PLC.defConfig { PLC._tccDynamicBuiltinNameTypes = types }) compiled
+  -- See Note [Checking the type of a term with Typeable]
+  term <- PIR.embed <$> PLC.rename plcTerm
+  -- We need to run Def *before* applying to the term, otherwise we may refer to abstract
+  -- types and we won't match up with the term.
+  idFun <- liftQuote $
+    runDefT () $ do
+      ty <- Lift.typeRep p
+      pure $ TyInst () PLC.idFun ty
+  let applied = Apply () idFun term
+  compiled <- flip runReaderT defaultCompilationCtx $ compileTerm applied
+  types <- PLC.getStringBuiltinTypes noProvenance
+  void $ PLC.inferType (PLC.defConfig {PLC._tccDynamicBuiltinNameTypes = types}) compiled
 
 -- | Try to interpret a PLC program as a 'CompiledCode' of the given type. Returns successfully iff the program has the right type.
-typeCode
-    :: forall e a uni m .
-       ( Lift.Typeable uni a
-       , PLC.AsTypeError e uni (Provenance ()), AsError e uni (Provenance ())
-       , MonadError e m, MonadQuote m
-       , PLC.GShow uni, PLC.GEq uni, PLC.DefaultUni PLC.<: uni
-       )
-    => Proxy a
-    -> PLC.Program PLC.TyName PLC.Name uni ()
-    -> m (CompiledCode uni a)
+typeCode ::
+  forall e a uni m.
+  ( Lift.Typeable uni a,
+    PLC.AsTypeError e uni (Provenance ()),
+    AsError e uni (Provenance ()),
+    MonadError e m,
+    MonadQuote m,
+    PLC.GShow uni,
+    PLC.GEq uni,
+    PLC.DefaultUni PLC.<: uni
+  ) =>
+  Proxy a ->
+  PLC.Program PLC.TyName PLC.Name uni () ->
+  m (CompiledCode uni a)
 typeCode p prog@(PLC.Program _ _ term) = do
-    _ <- typeCheckAgainst p term
-    pure $ DeserializedCode prog Nothing
+  _ <- typeCheckAgainst p term
+  pure $ DeserializedCode prog Nothing

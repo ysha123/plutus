@@ -1,42 +1,42 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DerivingVia           #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE KindSignatures        #-}
-{-# LANGUAGE MagicHash             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Language.PlutusCore.Evaluation.Machine.ExMemory
-( Plain
-, WithMemory
-, ExMemory(..)
-, ExCPU(..)
-, GenericExMemoryUsage(..)
-, ExMemoryUsage(..)
-, withMemory
-) where
+  ( Plain,
+    WithMemory,
+    ExMemory (..),
+    ExCPU (..),
+    GenericExMemoryUsage (..),
+    ExMemoryUsage (..),
+    withMemory,
+  )
+where
 
-import           Language.PlutusCore.Core
-import           Language.PlutusCore.Name
-import           Language.PlutusCore.Pretty
-import           Language.PlutusCore.Universe
-import           PlutusPrelude
-
-import           Control.Monad.RWS.Strict
-import qualified Data.ByteString.Lazy         as BSL
-import qualified Data.Kind                    as GHC
-import           Data.Proxy
-import qualified Data.Text                    as T
-import           Foreign.Storable
-import           GHC.Generics
-import           GHC.Integer
-import           GHC.Integer.Logarithms
-import           GHC.Prim
+import Control.Monad.RWS.Strict
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Kind as GHC
+import Data.Proxy
+import qualified Data.Text as T
+import Foreign.Storable
+import GHC.Generics
+import GHC.Integer
+import GHC.Integer.Logarithms
+import GHC.Prim
+import Language.PlutusCore.Core
+import Language.PlutusCore.Name
+import Language.PlutusCore.Pretty
+import Language.PlutusCore.Universe
+import PlutusPrelude
 
 {- Note [Memory Usage for Plutus]
 
@@ -50,6 +50,7 @@ abstractily specifiable. It's an implementation detail.
 -}
 
 type Plain f (uni :: GHC.Type -> GHC.Type) = f TyName Name uni ()
+
 -- | Caches Memory usage for builtin costing
 type WithMemory f (uni :: GHC.Type -> GHC.Type) = f TyName Name uni ExMemory
 
@@ -58,6 +59,7 @@ newtype ExMemory = ExMemory Integer
   deriving (Eq, Ord, Show)
   deriving newtype (Num, NFData)
   deriving (Semigroup, Monoid) via (Sum Integer)
+
 -- You have to use a standalone declaration for deriving a 'PrettyBy' instance.
 -- Yes, I also hate that.
 deriving newtype instance PrettyDefaultBy config Integer => PrettyBy config ExMemory
@@ -67,6 +69,7 @@ newtype ExCPU = ExCPU Integer
   deriving (Eq, Ord, Show)
   deriving newtype (Num, NFData)
   deriving (Semigroup, Monoid) via (Sum Integer)
+
 deriving newtype instance PrettyDefaultBy config Integer => PrettyBy config ExCPU
 
 -- Based on https://github.com/ekmett/semigroups/blob/master/src/Data/Semigroup/Generic.hs
@@ -95,24 +98,39 @@ instance (GExMemoryUsage f, GExMemoryUsage g) => GExMemoryUsage (f :+: g) where
   gmemoryUsage' (L1 x) = gmemoryUsage' x
   gmemoryUsage' (R1 x) = gmemoryUsage' x
 
-newtype GenericExMemoryUsage a = GenericExMemoryUsage { getGenericExMemoryUsage :: a }
+newtype GenericExMemoryUsage a = GenericExMemoryUsage {getGenericExMemoryUsage :: a}
+
 instance (Generic a, GExMemoryUsage (Rep a)) => ExMemoryUsage (GenericExMemoryUsage a) where
   memoryUsage (GenericExMemoryUsage x) = gmemoryUsage x
 
 class ExMemoryUsage a where
-    memoryUsage :: a -> ExMemory -- ^ How much memory does 'a' use?
+  memoryUsage ::
+    a ->
+    -- | How much memory does 'a' use?
+    ExMemory
 
 deriving via (GenericExMemoryUsage Name) instance ExMemoryUsage Name
+
 deriving via (GenericExMemoryUsage (Type TyName uni ann)) instance ExMemoryUsage ann => ExMemoryUsage (Type TyName uni ann)
+
 deriving via (GenericExMemoryUsage (Builtin ann)) instance ExMemoryUsage ann => ExMemoryUsage (Builtin ann)
+
 deriving via (GenericExMemoryUsage (Kind ann)) instance ExMemoryUsage ann => ExMemoryUsage (Kind ann)
+
 deriving via (GenericExMemoryUsage BuiltinName) instance ExMemoryUsage BuiltinName
+
 deriving via (GenericExMemoryUsage DynamicBuiltinName) instance ExMemoryUsage DynamicBuiltinName
-deriving via (GenericExMemoryUsage (Term TyName Name uni ann))
-  instance (ExMemoryUsage ann, Closed uni, uni `Everywhere` ExMemoryUsage) =>
+
+deriving via
+  (GenericExMemoryUsage (Term TyName Name uni ann))
+  instance
+    (ExMemoryUsage ann, Closed uni, uni `Everywhere` ExMemoryUsage) =>
     ExMemoryUsage (Term TyName Name uni ann)
+
 deriving newtype instance ExMemoryUsage TyName
+
 deriving newtype instance ExMemoryUsage ExMemory
+
 deriving newtype instance ExMemoryUsage Unique
 
 -- See https://github.com/input-output-hk/plutus/issues/1861

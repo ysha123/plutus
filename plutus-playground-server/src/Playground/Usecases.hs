@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Playground.Usecases where
 
-import           Data.ByteString              (ByteString)
-import           Data.FileEmbed               (embedFile, makeRelativeToProject)
-import qualified Data.Text                    as T
-import qualified Data.Text.Encoding           as T
-import           Language.Haskell.Interpreter (SourceCode (SourceCode))
+import Data.ByteString (ByteString)
+import Data.FileEmbed (embedFile, makeRelativeToProject)
+import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
+import Language.Haskell.Interpreter (SourceCode (SourceCode))
 
 marker :: T.Text
 marker = "TRIM TO HERE"
@@ -26,11 +26,11 @@ game = process $(makeRelativeToProject "usecases/Game.hs" >>= embedFile)
 
 errorHandling :: SourceCode
 errorHandling =
-    process $(makeRelativeToProject "usecases/ErrorHandling.hs" >>= embedFile)
+  process $(makeRelativeToProject "usecases/ErrorHandling.hs" >>= embedFile)
 
 crowdFunding :: SourceCode
 crowdFunding =
-    process $(makeRelativeToProject "usecases/Crowdfunding.hs" >>= embedFile)
+  process $(makeRelativeToProject "usecases/Crowdfunding.hs" >>= embedFile)
 
 starter :: SourceCode
 starter = process $(makeRelativeToProject "usecases/Starter.hs" >>= embedFile)

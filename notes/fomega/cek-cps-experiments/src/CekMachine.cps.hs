@@ -16,26 +16,24 @@
 -- Feeding ill-typed terms to the CEK machine will likely result in a 'MachineException'.
 -- The CEK machine generates booleans along the way which might contain globally non-unique 'Unique's.
 -- This is not a problem as the CEK machines handles name capture by design.
-
 module Language.PlutusCore.Interpreter.CekMachine
-    ( EvaluationResult (..)
-    , evaluateCek
-    , runCek
-    ) where
+  ( EvaluationResult (..),
+    evaluateCek,
+    runCek,
+  )
+where
 
-import           Language.PlutusCore
-import           Language.PlutusCore.Constant
-import           Language.PlutusCore.Evaluation.MachineException (MachineError (..), MachineException (..))
-import           Language.PlutusCore.Evaluation.Result           (EvaluationResult (..))
-import           Language.PlutusCore.View
-import           PlutusPrelude
-
-import qualified Data.Text                                       as T
-import qualified Data.Text.IO                                    as T
-import qualified Language.PlutusCore.Pretty                      as PLC
-
-import           Data.IntMap                                     (IntMap)
-import qualified Data.IntMap                                     as IntMap
+import Data.IntMap (IntMap)
+import qualified Data.IntMap as IntMap
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import Language.PlutusCore
+import Language.PlutusCore.Constant
+import Language.PlutusCore.Evaluation.MachineException (MachineError (..), MachineException (..))
+import Language.PlutusCore.Evaluation.Result (EvaluationResult (..))
+import qualified Language.PlutusCore.Pretty as PLC
+import Language.PlutusCore.View
+import PlutusPrelude
 
 termStr :: Plain Term -> String
 termStr = T.unpack . PLC.prettyPlcDefText
@@ -44,9 +42,9 @@ type Plain f = f TyName Name ()
 
 -- | A 'Value' packed together with the environment it's defined in.
 data Closure = Closure
-    { _closureEnvironment :: Environment
-    , _closureValue       :: Plain Value
-    }
+  { _closureEnvironment :: Environment,
+    _closureValue :: Plain Value
+  }
 
 -- | Environments used by the CEK machine.
 -- Each row is a mapping from the 'Unique' representing a variable to a 'Closure'.
@@ -56,7 +54,7 @@ newtype Environment = Environment (IntMap Closure)
 -- and the environment the value is defined in.
 extendEnvironment :: Name () -> Plain Value -> Environment -> Environment -> Environment
 extendEnvironment argName arg argEnv (Environment oldEnv) =
-    Environment $ IntMap.insert (unUnique $ nameUnique argName) (Closure argEnv arg) oldEnv
+  Environment $ IntMap.insert (unUnique $ nameUnique argName) (Closure argEnv arg) oldEnv
 
 -- | Look up a name in an environment.
 lookupName :: Name () -> Environment -> Maybe Closure
@@ -66,44 +64,40 @@ type Cont = Environment -> Plain Value -> EvaluationResult
 
 computeCek :: Cont -> Environment -> Plain Term -> EvaluationResult
 computeCek k env (TyInst _ fun ty) =
-    let k' = \e funVal -> instantiateEvaluate k e ty funVal
-    in computeCek k' env fun
-
+  let k' = \e funVal -> instantiateEvaluate k e ty funVal
+   in computeCek k' env fun
 -- [fun arg] -> compute fun, compute arg, call applyEvaluate; remember fun and arg envs.
 computeCek k env (Apply _ fun arg) =
-    let k1 = \funEnv funVal ->
-             let k2 = \argEnv argVal -> applyEvaluate k funEnv argEnv funVal argVal
-             in computeCek k2 env arg
-    in computeCek k1 env fun
-
+  let k1 = \funEnv funVal ->
+        let k2 = \argEnv argVal -> applyEvaluate k funEnv argEnv funVal argVal
+         in computeCek k2 env arg
+   in computeCek k1 env fun
 computeCek k env (Wrap ann tyn ty term) =
-    let k' = \e m -> k e (Wrap ann tyn ty m)
-    in computeCek k' env term
-
+  let k' = \e m -> k e (Wrap ann tyn ty m)
+   in computeCek k' env term
 computeCek k env (Unwrap _ term) =
-    let k' = \e v -> case v of
-                       Wrap _ _ _ t -> k e t
-                       _            -> throw $ MachineException NonWrapUnwrappedMachineError v
-    in computeCek k' env term
-
-computeCek k env tyAbs@TyAbs{}       = k env tyAbs
-computeCek k env lamAbs@LamAbs{}     = k env lamAbs
-computeCek k env constant@Constant{} = k env constant
-computeCek _ _ Error{}               = EvaluationFailure
-computeCek k env var@(Var _ name)    = case lookupName name env of
-    Nothing                  -> throw $ MachineException OpenTermEvaluatedMachineError var
-    Just (Closure env' term) -> k env' term
+  let k' = \e v -> case v of
+        Wrap _ _ _ t -> k e t
+        _ -> throw $ MachineException NonWrapUnwrappedMachineError v
+   in computeCek k' env term
+computeCek k env tyAbs@TyAbs {} = k env tyAbs
+computeCek k env lamAbs@LamAbs {} = k env lamAbs
+computeCek k env constant@Constant {} = k env constant
+computeCek _ _ Error {} = EvaluationFailure
+computeCek k env var@(Var _ name) = case lookupName name env of
+  Nothing -> throw $ MachineException OpenTermEvaluatedMachineError var
+  Just (Closure env' term) -> k env' term
 
 -- | Instantiate a term with a type and proceed.
 -- In case of 'TyAbs' just ignore the type. Otherwise check if the term is an
 -- iterated application of a 'BuiltinName' to a list of 'Value's and, if succesful,
 -- apply the term to the type via 'TyInst'.
-instantiateEvaluate
-    :: Cont -> Environment -> Type TyName () -> Plain Term -> EvaluationResult
-instantiateEvaluate k env _  (TyAbs _ _ _ body) = computeCek k env body
+instantiateEvaluate ::
+  Cont -> Environment -> Type TyName () -> Plain Term -> EvaluationResult
+instantiateEvaluate k env _ (TyAbs _ _ _ body) = computeCek k env body
 instantiateEvaluate k env ty fun
-    | isJust $ termAsPrimIterApp fun = k env $ TyInst () fun ty
-    | otherwise                      = throw $ MachineException NonPrimitiveInstantiationMachineError fun
+  | isJust $ termAsPrimIterApp fun = k env $ TyInst () fun ty
+  | otherwise = throw $ MachineException NonPrimitiveInstantiationMachineError fun
 
 -- | Apply a function to an argument and proceed.
 -- If the function is a 'LamAbs', then extend the current environment with a new variable and proceed.
@@ -113,22 +107,22 @@ instantiateEvaluate k env ty fun
 -- depending on whether 'BuiltinName' is saturated or not.
 applyEvaluate :: Cont -> Environment -> Environment -> Plain Value -> Plain Value -> EvaluationResult
 applyEvaluate k funEnv argEnv lam@(LamAbs _ name _ body) arg =
-    computeCek k (extendEnvironment name arg argEnv funEnv) body
-applyEvaluate k funEnv _ fun                    arg =
-    let term = Apply () fun arg in
-        case termAsPrimIterApp term of
-            Nothing                       ->
-                throw $ MachineException NonPrimitiveApplicationMachineError term
-            Just (IterApp headName spine) ->
-                case runQuote $ applyBuiltinName headName spine of
-                    ConstAppSuccess term' -> k funEnv term'
-                    ConstAppFailure       -> EvaluationFailure
-                    ConstAppStuck         -> k funEnv term
-                    ConstAppError err     -> throw $ MachineException (ConstAppMachineError err) term
+  computeCek k (extendEnvironment name arg argEnv funEnv) body
+applyEvaluate k funEnv _ fun arg =
+  let term = Apply () fun arg
+   in case termAsPrimIterApp term of
+        Nothing ->
+          throw $ MachineException NonPrimitiveApplicationMachineError term
+        Just (IterApp headName spine) ->
+          case runQuote $ applyBuiltinName headName spine of
+            ConstAppSuccess term' -> k funEnv term'
+            ConstAppFailure -> EvaluationFailure
+            ConstAppStuck -> k funEnv term
+            ConstAppError err -> throw $ MachineException (ConstAppMachineError err) term
 
 -- | Evaluate a term using the CEK machine. May throw a 'MachineException'.
 evaluateCek :: Term TyName Name () -> EvaluationResult
-evaluateCek = computeCek (\_ v ->  EvaluationSuccess v) (Environment IntMap.empty)
+evaluateCek = computeCek (\_ v -> EvaluationSuccess v) (Environment IntMap.empty)
 
 -- | Run a program using the CEK machine. May throw a 'MachineException'.
 -- Calls 'evaluateCek' under the hood, so the same caveats apply.

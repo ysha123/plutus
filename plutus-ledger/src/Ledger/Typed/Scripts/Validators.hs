@@ -1,52 +1,53 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE KindSignatures    #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE ViewPatterns      #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+
 module Ledger.Typed.Scripts.Validators where
 
-import           Data.Kind
-import           Data.Void
-
-import           Language.PlutusTx
-import qualified Language.PlutusTx         as PlutusTx
-import           Language.PlutusTx.Prelude
-
-import           Ledger.Scripts
-import qualified Ledger.Validation         as Validation
+import Data.Kind
+import Data.Void
+import Language.PlutusTx
+import qualified Language.PlutusTx as PlutusTx
+import Language.PlutusTx.Prelude
+import Ledger.Scripts
+import qualified Ledger.Validation as Validation
 
 -- | The type of validators for the given connection type.
 type ValidatorType (a :: Type) = DatumType a -> RedeemerType a -> Validation.ValidatorCtx -> Bool
 
 type WrappedValidatorType = Data -> Data -> Data -> ()
+
 type WrappedMonetaryPolicyType = Data -> ()
 
 -- | A class that associates a type standing for a connection type with two types, the type of the redeemer
 -- and the data script for that connection type.
 class ScriptType (a :: Type) where
-    -- | The type of the redeemers of this connection type.
-    type RedeemerType a :: Type
-    -- | The type of the data of this connection type.
-    type DatumType a :: Type
+  -- | The type of the redeemers of this connection type.
+  type RedeemerType a :: Type
 
-    -- Defaults
-    type instance RedeemerType a = ()
-    type instance DatumType  a = ()
+  -- | The type of the data of this connection type.
+  type DatumType a :: Type
+
+  -- Defaults
+  type RedeemerType a = ()
+  type DatumType a = ()
 
 instance ScriptType Void where
-    type RedeemerType Void = Void
-    type DatumType Void = Void
+  type RedeemerType Void = Void
+  type DatumType Void = Void
 
 data Any
 
 instance ScriptType Any where
-    type RedeemerType Any = Data
-    type DatumType Any = Data
+  type RedeemerType Any = Data
+  type DatumType Any = Data
 
 {- Note [Scripts returning Bool]
 It used to be that the signal for validation failure was a script being `error`. This is nice for the validator, since
@@ -62,27 +63,27 @@ to the previous problem: apply a function which does a pattern match and returns
 otherwise. Then, as before, we just check for error in the overall evaluation.
 -}
 
-{-# INLINABLE wrapValidator #-}
-wrapValidator
-    :: forall d r
-    . (IsData d, IsData r)
-    => (d -> r -> Validation.ValidatorCtx -> Bool)
-    -> WrappedValidatorType
+{-# INLINEABLE wrapValidator #-}
+wrapValidator ::
+  forall d r.
+  (IsData d, IsData r) =>
+  (d -> r -> Validation.ValidatorCtx -> Bool) ->
+  WrappedValidatorType
 wrapValidator f (fromData -> Just d) (fromData -> Just r) (fromData -> Just p) = check $ f d r p
-wrapValidator _ _ _ _                                                          = check False
+wrapValidator _ _ _ _ = check False
 
-{-# INLINABLE wrapMonetaryPolicy #-}
-wrapMonetaryPolicy
-    :: (Validation.PolicyCtx -> Bool)
-    -> WrappedMonetaryPolicyType
+{-# INLINEABLE wrapMonetaryPolicy #-}
+wrapMonetaryPolicy ::
+  (Validation.PolicyCtx -> Bool) ->
+  WrappedMonetaryPolicyType
 wrapMonetaryPolicy f (fromData -> Just p) = check $ f p
-wrapMonetaryPolicy _ _                    = check False
+wrapMonetaryPolicy _ _ = check False
 
 -- | A monetary policy that checks whether the validator script was run
 --   in the forging transaction
-{-# INLINABLE mkMonetaryPolicy #-}
+{-# INLINEABLE mkMonetaryPolicy #-}
 mkMonetaryPolicy :: ValidatorHash -> MonetaryPolicy
 mkMonetaryPolicy vshsh =
-    mkMonetaryPolicyScript
-    $ ($$(PlutusTx.compile [|| \(hsh :: ValidatorHash) -> wrapMonetaryPolicy (\ptx -> not $ null $ Validation.scriptOutputsAt hsh (Validation.policyCtxTxInfo ptx)) ||]))
-       `PlutusTx.applyCode` PlutusTx.liftCode vshsh
+  mkMonetaryPolicyScript $
+    ($$(PlutusTx.compile [||\(hsh :: ValidatorHash) -> wrapMonetaryPolicy (\ptx -> not $ null $ Validation.scriptOutputsAt hsh (Validation.policyCtxTxInfo ptx))||]))
+      `PlutusTx.applyCode` PlutusTx.liftCode vshsh

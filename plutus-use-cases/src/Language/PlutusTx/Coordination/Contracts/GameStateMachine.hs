@@ -1,122 +1,120 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE NoImplicitPrelude     #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE ViewPatterns          #-}
-{-# OPTIONS_GHC -fno-strictness #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+
 {-# OPTIONS -fplugin-opt Language.PlutusTx.Plugin:debug-context #-}
+
 -- | A guessing game that
 --
 --   * Uses a state machine to keep track of the current secret word
 --   * Uses a token to keep track of who is allowed to make a guess
---
+module Language.PlutusTx.Coordination.Contracts.GameStateMachine
+  ( contract,
+    scriptInstance,
+    GameToken,
+    mkValidator,
+    monetaryPolicy,
+    LockArgs (..),
+    GuessArgs (..),
+    GameStateMachineSchema,
+    token,
+  )
+where
 
-module Language.PlutusTx.Coordination.Contracts.GameStateMachine(
-    contract
-    , scriptInstance
-    , GameToken
-    , mkValidator
-    , monetaryPolicy
-    , LockArgs(..)
-    , GuessArgs(..)
-    , GameStateMachineSchema
-    , token
-    ) where
-
-import           Control.Monad                         (void)
-import qualified Language.PlutusTx                     as PlutusTx
-import           Language.PlutusTx.Prelude             hiding (Applicative (..), check)
-import           Ledger                                hiding (to)
-import           Ledger.Constraints                    (TxConstraints)
-import qualified Ledger.Constraints                    as Constraints
-import qualified Ledger.Typed.Scripts                  as Scripts
-import qualified Ledger.Value                          as V
-
-import qualified Data.ByteString.Lazy.Char8            as C
-
-import           Language.Plutus.Contract.StateMachine (State (..), Void)
+import Control.Monad (void)
+import qualified Data.ByteString.Lazy.Char8 as C
+import Language.Plutus.Contract
+import Language.Plutus.Contract.StateMachine (State (..), Void)
 import qualified Language.Plutus.Contract.StateMachine as SM
-
-import           Language.Plutus.Contract
+import qualified Language.PlutusTx as PlutusTx
+import Language.PlutusTx.Prelude hiding (Applicative (..), check)
+import Ledger hiding (to)
+import Ledger.Constraints (TxConstraints)
+import qualified Ledger.Constraints as Constraints
+import qualified Ledger.Typed.Scripts as Scripts
+import qualified Ledger.Value as V
 
 newtype HashedString = HashedString ByteString
-    deriving newtype (PlutusTx.IsData, Eq)
-    deriving stock Show
+  deriving newtype (PlutusTx.IsData, Eq)
+  deriving stock (Show)
 
 PlutusTx.makeLift ''HashedString
 
 newtype ClearString = ClearString ByteString
-    deriving newtype (PlutusTx.IsData, Eq)
-    deriving stock Show
+  deriving newtype (PlutusTx.IsData, Eq)
+  deriving stock (Show)
 
 PlutusTx.makeLift ''ClearString
 
 -- | Arguments for the @"lock"@ endpoint
-data LockArgs =
-    LockArgs
-        { lockArgsSecret :: String
-        -- ^ The secret
-        , lockArgsValue  :: Value
-        -- ^ Value that is locked by the contract initially
-        } deriving Show
+data LockArgs = LockArgs
+  { -- | The secret
+    lockArgsSecret :: String,
+    -- | Value that is locked by the contract initially
+    lockArgsValue :: Value
+  }
+  deriving (Show)
 
 -- | Arguments for the @"guess"@ endpoint
-data GuessArgs =
-    GuessArgs
-        { guessArgsOldSecret     :: String
-        -- ^ The guess
-        , guessArgsNewSecret     :: String
-        -- ^ The new secret
-        , guessArgsValueTakenOut :: Value
-        -- ^ How much to extract from the contract
-        } deriving Show
+data GuessArgs = GuessArgs
+  { -- | The guess
+    guessArgsOldSecret :: String,
+    -- | The new secret
+    guessArgsNewSecret :: String,
+    -- | How much to extract from the contract
+    guessArgsValueTakenOut :: Value
+  }
+  deriving (Show)
 
 -- | The schema of the contract. It consists of the usual
 --   'BlockchainActions' plus the two endpoints @"lock"@
 --   and @"guess"@ with their respective argument types.
 type GameStateMachineSchema =
-    BlockchainActions
-        .\/ Endpoint "lock" LockArgs
-        .\/ Endpoint "guess" GuessArgs
+  BlockchainActions
+    .\/ Endpoint "lock" LockArgs
+    .\/ Endpoint "guess" GuessArgs
 
-data GameError =
-    GameContractError ContractError
-    | GameSMError (SM.SMContractError GameState GameInput)
-    deriving stock (Show)
+data GameError
+  = GameContractError ContractError
+  | GameSMError (SM.SMContractError GameState GameInput)
+  deriving stock (Show)
 
 -- | Top-level contract, exposing both endpoints.
 contract :: Contract GameStateMachineSchema GameError ()
 contract = (lock `select` guess) >> contract
 
 -- | The token that represents the right to make a guess
-newtype GameToken = GameToken { unGameToken :: Value }
-    deriving newtype (Eq, Show)
+newtype GameToken = GameToken {unGameToken :: Value}
+  deriving newtype (Eq, Show)
 
 token :: MonetaryPolicyHash -> TokenName -> Value
 token mps tn = V.singleton (V.mpsSymbol mps) tn 1
 
 -- | State of the guessing game
-data GameState =
+data GameState
+  = -- | Initial state. In this state only the 'ForgeTokens' action is allowed.
     Initialised MonetaryPolicyHash TokenName HashedString
-    -- ^ Initial state. In this state only the 'ForgeTokens' action is allowed.
-    | Locked MonetaryPolicyHash TokenName HashedString
-    -- ^ Funds have been locked. In this state only the 'Guess' action is
+  | -- | Funds have been locked. In this state only the 'Guess' action is
     --   allowed.
-    deriving (Show)
+    Locked MonetaryPolicyHash TokenName HashedString
+  deriving (Show)
 
 instance Eq GameState where
-    {-# INLINABLE (==) #-}
-    (Initialised sym tn s) == (Initialised sym' tn' s') = sym == sym' && s == s' && tn == tn'
-    (Locked sym tn s) == (Locked sym' tn' s') = sym == sym' && s == s' && tn == tn'
-    _ == _ = traceIfFalse "states not equal" False
+  {-# INLINEABLE (==) #-}
+  (Initialised sym tn s) == (Initialised sym' tn' s') = sym == sym' && s == s' && tn == tn'
+  (Locked sym tn s) == (Locked sym' tn' s') = sym == sym' && s == s' && tn == tn'
+  _ == _ = traceIfFalse "states not equal" False
 
 -- | Check whether a 'ClearString' is the preimage of a
 --   'HashedString'
@@ -124,51 +122,55 @@ checkGuess :: HashedString -> ClearString -> Bool
 checkGuess (HashedString actual) (ClearString gss) = actual == (sha2_256 gss)
 
 -- | Inputs (actions)
-data GameInput =
-      ForgeToken
-    -- ^ Forge the "guess" token
-    | Guess ClearString HashedString Value
-    -- ^ Make a guess, extract the funds, and lock the remaining funds using a
+data GameInput
+  = -- | Forge the "guess" token
+    ForgeToken
+  | -- | Make a guess, extract the funds, and lock the remaining funds using a
     --   new secret word.
-    deriving (Show)
+    Guess ClearString HashedString Value
+  deriving (Show)
 
-{-# INLINABLE transition #-}
+{-# INLINEABLE transition #-}
 transition :: State GameState -> GameInput -> Maybe (TxConstraints Void Void, State GameState)
-transition State{stateData=oldData, stateValue=oldValue} input = case (oldData, input) of
-    (Initialised mph tn s, ForgeToken) ->
-        let constraints = Constraints.mustForgeCurrency mph tn 1 in
-        Just ( constraints
-             , State
-                { stateData = Locked mph tn s
-                , stateValue = oldValue
+transition State {stateData = oldData, stateValue = oldValue} input = case (oldData, input) of
+  (Initialised mph tn s, ForgeToken) ->
+    let constraints = Constraints.mustForgeCurrency mph tn 1
+     in Just
+          ( constraints,
+            State
+              { stateData = Locked mph tn s,
+                stateValue = oldValue
+              }
+          )
+  (Locked mph tn currentSecret, Guess theGuess nextSecret takenOut)
+    | checkGuess currentSecret theGuess ->
+      let constraints = Constraints.mustSpendValue (token mph tn) <> Constraints.mustForgeCurrency mph tn 0
+       in Just
+            ( constraints,
+              State
+                { stateData = Locked mph tn nextSecret,
+                  stateValue = oldValue - takenOut
                 }
-             )
-    (Locked mph tn currentSecret, Guess theGuess nextSecret takenOut)
-        | checkGuess currentSecret theGuess ->
-        let constraints = Constraints.mustSpendValue (token mph tn) <> Constraints.mustForgeCurrency mph tn 0 in
-        Just ( constraints
-             , State
-                { stateData = Locked mph tn nextSecret
-                , stateValue = oldValue - takenOut
-                }
-             )
-    _ -> Nothing
+            )
+  _ -> Nothing
 
-{-# INLINABLE machine #-}
+{-# INLINEABLE machine #-}
 machine :: SM.StateMachine GameState GameInput
-machine = SM.mkStateMachine transition isFinal where
+machine = SM.mkStateMachine transition isFinal
+  where
     isFinal _ = False
 
-{-# INLINABLE mkValidator #-}
+{-# INLINEABLE mkValidator #-}
 mkValidator :: Scripts.ValidatorType (SM.StateMachine GameState GameInput)
 mkValidator = SM.mkValidator machine
 
 scriptInstance :: Scripts.ScriptInstance (SM.StateMachine GameState GameInput)
-scriptInstance = Scripts.validator @(SM.StateMachine GameState GameInput)
-    $$(PlutusTx.compile [|| mkValidator ||])
-    $$(PlutusTx.compile [|| wrap ||])
-    where
-        wrap = Scripts.wrapValidator @GameState @GameInput
+scriptInstance =
+  Scripts.validator @(SM.StateMachine GameState GameInput)
+    $$(PlutusTx.compile [||mkValidator||])
+    $$(PlutusTx.compile [||wrap||])
+  where
+    wrap = Scripts.wrapValidator @GameState @GameInput
 
 monetaryPolicy :: Scripts.MonetaryPolicy
 monetaryPolicy = Scripts.monetaryPolicy scriptInstance
@@ -185,23 +187,24 @@ client = SM.mkStateMachineClient machineInstance
 -- | The @"guess"@ endpoint.
 guess :: Contract GameStateMachineSchema GameError ()
 guess = do
-    GuessArgs{guessArgsOldSecret,guessArgsNewSecret, guessArgsValueTakenOut} <- mapError GameContractError $ endpoint @"guess"
+  GuessArgs {guessArgsOldSecret, guessArgsNewSecret, guessArgsValueTakenOut} <- mapError GameContractError $ endpoint @"guess"
 
-    let guessedSecret = ClearString (C.pack guessArgsOldSecret)
-        newSecret     = HashedString (sha2_256 (C.pack guessArgsNewSecret))
+  let guessedSecret = ClearString (C.pack guessArgsOldSecret)
+      newSecret = HashedString (sha2_256 (C.pack guessArgsNewSecret))
 
-    void
-        $ mapError GameSMError
-        $ SM.runStep client
-            (Guess guessedSecret newSecret guessArgsValueTakenOut)
+  void $
+    mapError GameSMError $
+      SM.runStep
+        client
+        (Guess guessedSecret newSecret guessArgsValueTakenOut)
 
 lock :: Contract GameStateMachineSchema GameError ()
 lock = do
-    LockArgs{lockArgsSecret, lockArgsValue} <- mapError GameContractError $ endpoint @"lock"
-    let secret = HashedString (sha2_256 (C.pack lockArgsSecret))
-        sym = Scripts.monetaryPolicyHash scriptInstance
-    _ <- mapError GameSMError $ SM.runInitialise client (Initialised sym "guess" secret) lockArgsValue
-    void $ mapError GameSMError $ SM.runStep client ForgeToken
+  LockArgs {lockArgsSecret, lockArgsValue} <- mapError GameContractError $ endpoint @"lock"
+  let secret = HashedString (sha2_256 (C.pack lockArgsSecret))
+      sym = Scripts.monetaryPolicyHash scriptInstance
+  _ <- mapError GameSMError $ SM.runInitialise client (Initialised sym "guess" secret) lockArgsValue
+  void $ mapError GameSMError $ SM.runStep client ForgeToken
 
 PlutusTx.makeIsData ''GameState
 PlutusTx.makeLift ''GameState

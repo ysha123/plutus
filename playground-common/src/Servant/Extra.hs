@@ -2,20 +2,22 @@
 
 module Servant.Extra where
 
-import           Servant ((:<|>) ((:<|>)))
+import Servant ((:<|>) ((:<|>)))
 
 left ::
-       (a
-        :<|> b)
-    -> a
+  ( a
+      :<|> b
+  ) ->
+  a
 left x =
-    let (a :<|> _) = x
-     in a
+  let (a :<|> _) = x
+   in a
 
 right ::
-       (a
-        :<|> b)
-    -> b
+  ( a
+      :<|> b
+  ) ->
+  b
 right x =
-    let (_ :<|> b) = x
-     in b
+  let (_ :<|> b) = x
+   in b

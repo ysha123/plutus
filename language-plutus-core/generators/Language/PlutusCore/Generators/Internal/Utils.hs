@@ -1,30 +1,29 @@
--- | Utilities used in modules from the @TestSupport@ folder.
-
-{-# LANGUAGE GADTs      #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
+-- | Utilities used in modules from the @TestSupport@ folder.
 module Language.PlutusCore.Generators.Internal.Utils
-    ( liftT
-    , generalizeT
-    , hoistSupply
-    , choiceDef
-    , forAllNoShow
-    , forAllNoShowT
-    , forAllPretty
-    , forAllPrettyT
-    , forAllPrettyPlc
-    , forAllPrettyPlcT
-    , prettyPlcErrorString
-    ) where
+  ( liftT,
+    generalizeT,
+    hoistSupply,
+    choiceDef,
+    forAllNoShow,
+    forAllNoShowT,
+    forAllPretty,
+    forAllPrettyT,
+    forAllPrettyPlc,
+    forAllPrettyPlcT,
+    prettyPlcErrorString,
+  )
+where
 
-import           Language.PlutusCore.Pretty
-
-import           Control.Monad.Morph
-import           Control.Monad.Reader
-import           Data.Functor.Identity
-import           Hedgehog                   hiding (Size, Var)
-import qualified Hedgehog.Gen               as Gen
-import           Hedgehog.Internal.Property (forAllWithT)
+import Control.Monad.Morph
+import Control.Monad.Reader
+import Data.Functor.Identity
+import Hedgehog hiding (Size, Var)
+import qualified Hedgehog.Gen as Gen
+import Hedgehog.Internal.Property (forAllWithT)
+import Language.PlutusCore.Pretty
 
 -- | @hoist lift@
 liftT :: (MFunctor t, MonadTrans s, Monad m) => t m a -> t (s m) a

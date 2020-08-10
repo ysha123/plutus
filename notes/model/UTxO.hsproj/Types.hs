@@ -9,39 +9,29 @@
 -- Stability   : experimental
 --
 -- Basic type definitions
+module Types where
 
-module Types
-where
-
-import           "cryptonite" Crypto.Hash
-
+import "cryptonite" Crypto.Hash
 
 -- Basic types
 
--- |Crypotocurrency value
---
+-- | Crypotocurrency value
 type Value = Integer
 
--- |A transaction's ID is a double SHA256 hash of the transaction structure.
---
+-- | A transaction's ID is a double SHA256 hash of the transaction structure.
 type TxId = Digest SHA256
 
--- |A payment address is a SHA256 hash followed by another SHA256 hash of a UTxO
--- output's validator script. This corresponds to a Bitcoin pay-to-witness-script-hash
--- (P2WSH) address.
---
+-- | A payment address is a SHA256 hash followed by another SHA256 hash of a UTxO
+--  output's validator script. This corresponds to a Bitcoin pay-to-witness-script-hash
+--  (P2WSH) address.
 type Address = Digest SHA256
 
--- |Transaction height
---
+-- | Transaction height
 type Height = Int
 
--- |Ledger and transaction state available to both the validator and redeemer scripts
---
-data State
-  = State
-    { stateHeight    :: Height
-    , stateTxHash    :: TxId    -- double SHA256 hash
-    , stateTxPreHash :: TxId    -- single SHA256 hash
-    }
-
+-- | Ledger and transaction state available to both the validator and redeemer scripts
+data State = State
+  { stateHeight :: Height,
+    stateTxHash :: TxId, -- double SHA256 hash
+    stateTxPreHash :: TxId -- single SHA256 hash
+  }

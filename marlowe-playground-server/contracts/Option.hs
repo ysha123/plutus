@@ -1,29 +1,31 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 module Option where
 
-import           Language.Marlowe
+import Language.Marlowe
 
 main :: IO ()
 main = print . pretty $ contract
 
 contract :: Contract
-contract = When
+contract =
+  When
     []
     10
-    (When
-        [Case
-            (Choice
-                (ChoiceId
+    ( When
+        [ Case
+            ( Choice
+                ( ChoiceId
                     "exercise"
                     (Role "buyer")
                 )
                 [Bound 0 1]
             )
-            (Let
+            ( Let
                 "payoff"
-                (Cond
-                    (ValueEQ
-                        (ChoiceValue
+                ( Cond
+                    ( ValueEQ
+                        ( ChoiceValue
                             (ChoiceId "exercise" (Role "buyer"))
                         )
                         (Constant 1)
@@ -31,24 +33,27 @@ contract = When
                     (Constant 1)
                     (Constant 0)
                 )
-                (When
-                    [Case
-                        (Deposit
+                ( When
+                    [ Case
+                        ( Deposit
                             (AccountId 0 (Role "seller"))
                             (Role "seller")
                             (Token "" "")
                             (UseValue "payoff")
                         )
-                        (Pay
+                        ( Pay
                             (AccountId 0 (Role "seller"))
                             (Party (Role "buyer"))
                             (Token "" "")
                             (UseValue "payoff")
                             Close
-                        )]
-                    120 Close
+                        )
+                    ]
+                    120
+                    Close
                 )
-            )]
-        110 Close
+            )
+        ]
+        110
+        Close
     )
-

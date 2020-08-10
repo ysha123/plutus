@@ -1,18 +1,17 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
-
 module Language.PlutusCore.Core.Instance.Recursive
-    ( -- * Base functors
-      TermF (..)
-    , TypeF (..)
-    , KindF (..)
-    ) where
+  ( -- * Base functors
+    TermF (..),
+    TypeF (..),
+    KindF (..),
+  )
+where
 
-import           Language.PlutusCore.Core.Type
-import           PlutusPrelude
-
-import           Data.Functor.Foldable.TH
+import Data.Functor.Foldable.TH
+import Language.PlutusCore.Core.Type
+import PlutusPrelude
 
 $(join <$> traverse makeBaseFunctor [''Kind, ''Type, ''Term])

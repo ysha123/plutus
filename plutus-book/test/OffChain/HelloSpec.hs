@@ -2,22 +2,19 @@
 
 module OffChain.HelloSpec (spec) where
 
-import           Utils
-
-import           OffChain.Hello  (hello)
-
-import           Wallet.Emulator
-
-import           Control.Monad   (void)
-import           Data.Either     (isRight)
-import           Test.Hspec
+import Control.Monad (void)
+import Data.Either (isRight)
+import OffChain.Hello (hello)
+import Test.Hspec
+import Utils
+import Wallet.Emulator
 
 spec :: Spec
 spec = describe "hello" $
-    it "logs the expected message" $ do
-        let res = getResult tr
-        fst res `shouldSatisfy` isRight
-        _emulatorLog (snd res) `shouldBe` [WalletInfo w "Hello from the wallet!"]
+  it "logs the expected message" $ do
+    let res = getResult tr
+    fst res `shouldSatisfy` isRight
+    _emulatorLog (snd res) `shouldBe` [WalletInfo w "Hello from the wallet!"]
   where
     w :: Wallet
     w = Wallet 1

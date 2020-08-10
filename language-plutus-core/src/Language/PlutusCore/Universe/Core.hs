@@ -1,53 +1,53 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE KindSignatures        #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Language.PlutusCore.Universe.Core
-    ( Some (..)
-    , TypeIn (..)
-    , ValueOf (..)
-    , someValue
-    , Includes (..)
-    , IncludesAll
-    , Closed (..)
-    , EverywhereAll
-    , type (<:)
-    , knownUniOf
-    , GShow (..)
-    , gshow
-    , GEq (..)
-    , deriveGEq
-    , Lift
-    , (:~:) (..)
-    , GLift (..)
-    ) where
+  ( Some (..),
+    TypeIn (..),
+    ValueOf (..),
+    someValue,
+    Includes (..),
+    IncludesAll,
+    Closed (..),
+    EverywhereAll,
+    type (<:),
+    knownUniOf,
+    GShow (..),
+    gshow,
+    GEq (..),
+    deriveGEq,
+    Lift,
+    (:~:) (..),
+    GLift (..),
+  )
+where
 
-import           Control.DeepSeq
-import           Control.Monad
-import           Data.GADT.Compare
-import           Data.GADT.Compare.TH
-import           Data.GADT.Show
-import           Data.Hashable
-import qualified Data.Kind                  as GHC (Type)
-import           Data.Proxy
-import           Data.Text.Prettyprint.Doc  (Pretty (..))
-import           GHC.Exts
-import           Language.Haskell.TH.Lift
-import           Language.Haskell.TH.Syntax
-import           Text.Show.Deriving
-
-import           Language.PlutusCore.Pretty (PrettyConst, prettyConst)
+import Control.DeepSeq
+import Control.Monad
+import Data.GADT.Compare
+import Data.GADT.Compare.TH
+import Data.GADT.Show
+import Data.Hashable
+import qualified Data.Kind as GHC (Type)
+import Data.Proxy
+import Data.Text.Prettyprint.Doc (Pretty (..))
+import GHC.Exts
+import Language.Haskell.TH.Lift
+import Language.Haskell.TH.Syntax
+import Language.PlutusCore.Pretty (PrettyConst, prettyConst)
+import Text.Show.Deriving
 
 {- Note [Universes]
 A universe is a collection of tags for types. It can be finite like
@@ -78,8 +78,8 @@ For example, 'Int' is in 'U', because there exists a tag for 'Int' in 'U' -- 'UI
 -}
 
 type family All (constr :: k -> Constraint) (as :: [k]) :: Constraint where
-    All constr '[]       = ()
-    All constr (x ': xs) = (constr x, All constr xs)
+  All constr '[] = ()
+  All constr (x ': xs) = (constr x, All constr xs)
 
 -- | Existential quantification as a data type.
 data Some f = forall a. Some (f a)
@@ -92,7 +92,7 @@ data ValueOf uni a = ValueOf (uni a) a
 
 -- | A constraint for \"@a@ is in @uni@\".
 class uni `Includes` a where
-    knownUni :: uni a
+  knownUni :: uni a
 
 type uni `IncludesAll` as = All (Includes uni) as
 
@@ -107,24 +107,24 @@ someValue = Some . ValueOf knownUni
 -- | A universe is 'Closed', if it's known how to constrain every type from the universe
 -- (the universe doesn't have to be finite for that).
 class Closed uni where
-    -- | A constrant for \"@constr a@ holds for any @a@ from @uni@\".
-    type Everywhere uni (constr :: GHC.Type -> Constraint) :: Constraint
+  -- | A constrant for \"@constr a@ holds for any @a@ from @uni@\".
+  type Everywhere uni (constr :: GHC.Type -> Constraint) :: Constraint
 
-    -- | Get the 'Int' tag of a type from @uni@. The opposite of 'uniAt'.
-    tagOf :: uni a -> Int
+  -- | Get the 'Int' tag of a type from @uni@. The opposite of 'uniAt'.
+  tagOf :: uni a -> Int
 
-    -- | Get the universe at a tag. The opposite of 'tagOf'.
-    uniAt :: Int -> Maybe (Some (TypeIn uni))
+  -- | Get the universe at a tag. The opposite of 'tagOf'.
+  uniAt :: Int -> Maybe (Some (TypeIn uni))
 
-    -- | Bring a @constr a@ instance in scope, provided @a@ is a type from the universe and
-    -- @constr@ holds for any type from the universe.
-    bring :: uni `Everywhere` constr => proxy constr -> uni a -> (constr a => r) -> r
+  -- | Bring a @constr a@ instance in scope, provided @a@ is a type from the universe and
+  -- @constr@ holds for any type from the universe.
+  bring :: uni `Everywhere` constr => proxy constr -> uni a -> (constr a => r) -> r
 
 -- We can't use @All (Everywhere uni) constrs@, because 'Everywhere' is an associated type family
 -- and can't be partially applied, so we have to inline the definition here.
 type family uni `EverywhereAll` (constrs :: [GHC.Type -> Constraint]) :: Constraint where
-    uni `EverywhereAll` '[]                 = ()
-    uni `EverywhereAll` (constr ': constrs) = (uni `Everywhere` constr, uni `EverywhereAll` constrs)
+  uni `EverywhereAll` '[] = ()
+  uni `EverywhereAll` (constr ': constrs) = (uni `Everywhere` constr, uni `EverywhereAll` constrs)
 
 -- | A constraint for \"@uni1@ is a subuniverse of @uni2@\".
 type uni1 <: uni2 = uni1 `Everywhere` Includes uni2
@@ -242,104 +242,107 @@ We should be able to use the same strategy for every type class @X@ when a @make
 -}
 
 -- WARNING: DO NOT EXPORT THIS, IT HAS AN UNSOUND 'Lift' INSTANCE USED FOR INTERNAL PURPOSES.
+
 -- | A wrapper that allows to provide an instance for a non-general class (e.g. `Lift` or 'Show')
 -- for any @f@ implementing a general class (e.g. 'GLift' or 'GShow').
 newtype AG f a = AG (f a)
 
-$(return [])  -- Stage restriction, see https://gitlab.haskell.org/ghc/ghc/issues/9813
+$(return []) -- Stage restriction, see https://gitlab.haskell.org/ghc/ghc/issues/9813
 
 -------------------- 'Show' / 'GShow'
 
 instance GShow f => Show (AG f a) where
-    showsPrec pr (AG a) = gshowsPrec pr a
+  showsPrec pr (AG a) = gshowsPrec pr a
 
 instance GShow f => Show (Some f) where
-    showsPrec pr (Some a) = ($(makeShowsPrec ''Some)) pr (Some (AG a))
+  showsPrec pr (Some a) = ($(makeShowsPrec ''Some)) pr (Some (AG a))
 
 instance GShow uni => GShow (TypeIn uni) where gshowsPrec = showsPrec
+
 instance GShow uni => Show (TypeIn uni a) where
-    showsPrec pr (TypeIn uni) = ($(makeShowsPrec ''TypeIn)) pr (TypeIn (AG uni))
+  showsPrec pr (TypeIn uni) = ($(makeShowsPrec ''TypeIn)) pr (TypeIn (AG uni))
 
 instance (GShow uni, Closed uni, uni `Everywhere` Show) => GShow (ValueOf uni) where
-    gshowsPrec = showsPrec
+  gshowsPrec = showsPrec
+
 instance (GShow uni, Closed uni, uni `Everywhere` Show) => Show (ValueOf uni a) where
-    showsPrec pr (ValueOf uni x) =
-        bring (Proxy @Show) uni $ ($(makeShowsPrec ''ValueOf)) pr (ValueOf (AG uni) x)
+  showsPrec pr (ValueOf uni x) =
+    bring (Proxy @Show) uni $ ($(makeShowsPrec ''ValueOf)) pr (ValueOf (AG uni) x)
 
 -------------------- 'Pretty'
 
 instance GShow uni => Pretty (TypeIn uni a) where
-    pretty (TypeIn uni) = pretty $ gshow uni
+  pretty (TypeIn uni) = pretty $ gshow uni
 
 -- | Special treatment for built-in constants: see the Note in Language.PlutusCore.Pretty.PrettyConst.
 instance (Closed uni, uni `Everywhere` PrettyConst) => Pretty (ValueOf uni a) where
-    pretty (ValueOf uni x) = bring (Proxy @PrettyConst) uni $ prettyConst x
+  pretty (ValueOf uni x) = bring (Proxy @PrettyConst) uni $ prettyConst x
 
 instance GShow uni => Pretty (Some (TypeIn uni)) where
-    pretty (Some s) = pretty s
+  pretty (Some s) = pretty s
 
 -- Note that the call to `pretty` here is to the instance for `ValueOf uni a`, which calls prettyConst.
 instance (Closed uni, uni `Everywhere` PrettyConst) => Pretty (Some (ValueOf uni)) where
-    pretty (Some s) = pretty s
+  pretty (Some s) = pretty s
 
 -------------------- 'Eq' / 'GEq'
 
 instance GEq f => Eq (Some f) where
-    Some a1 == Some a2 = a1 `defaultEq` a2
+  Some a1 == Some a2 = a1 `defaultEq` a2
 
 deriving newtype instance GEq uni => GEq (TypeIn uni)
 
 instance (GEq uni, Closed uni, uni `Everywhere` Eq) => GEq (ValueOf uni) where
-    ValueOf uni1 x1 `geq` ValueOf uni2 x2 = do
-        Refl <- uni1 `geq` uni2
-        guard $ bring (Proxy @Eq) uni1 (x1 == x2)
-        Just Refl
+  ValueOf uni1 x1 `geq` ValueOf uni2 x2 = do
+    Refl <- uni1 `geq` uni2
+    guard $ bring (Proxy @Eq) uni1 (x1 == x2)
+    Just Refl
 
 instance GEq uni => Eq (TypeIn uni a) where
-    a1 == a2 = a1 `defaultEq` a2
+  a1 == a2 = a1 `defaultEq` a2
 
 instance (GEq uni, Closed uni, uni `Everywhere` Eq) => Eq (ValueOf uni a) where
-    a1 == a2 = a1 `defaultEq` a2
+  a1 == a2 = a1 `defaultEq` a2
 
 -------------------- 'NFData'
 
 instance NFData (TypeIn uni a) where
-    rnf (TypeIn uni) = uni `seq` ()
+  rnf (TypeIn uni) = uni `seq` ()
 
 instance (Closed uni, uni `Everywhere` NFData) => NFData (ValueOf uni a) where
-    rnf (ValueOf uni x) = bring (Proxy @NFData) uni $ rnf x
+  rnf (ValueOf uni x) = bring (Proxy @NFData) uni $ rnf x
 
 instance NFData (Some (TypeIn uni)) where
-    rnf (Some s) = rnf s
+  rnf (Some s) = rnf s
 
 instance (Closed uni, uni `Everywhere` NFData) => NFData (Some (ValueOf uni)) where
-    rnf (Some s) = rnf s
+  rnf (Some s) = rnf s
 
 -------------------- 'Hashable'
 
 instance Closed uni => Hashable (TypeIn uni a) where
-    hashWithSalt salt (TypeIn uni) = hashWithSalt salt $ tagOf uni
+  hashWithSalt salt (TypeIn uni) = hashWithSalt salt $ tagOf uni
 
 instance (Closed uni, uni `Everywhere` Hashable) => Hashable (ValueOf uni a) where
-    hashWithSalt salt (ValueOf uni x) =
-        bring (Proxy @Hashable) uni $ hashWithSalt salt (Some (TypeIn uni), x)
+  hashWithSalt salt (ValueOf uni x) =
+    bring (Proxy @Hashable) uni $ hashWithSalt salt (Some (TypeIn uni), x)
 
 instance Closed uni => Hashable (Some (TypeIn uni)) where
-    hashWithSalt salt (Some s) = hashWithSalt salt s
+  hashWithSalt salt (Some s) = hashWithSalt salt s
 
 instance (Closed uni, uni `Everywhere` Hashable) => Hashable (Some (ValueOf uni)) where
-    hashWithSalt salt (Some s) = hashWithSalt salt s
+  hashWithSalt salt (Some s) = hashWithSalt salt s
 
 -------------------- 'Lift'
 
 -- | 'GLift' to 'Lift' is what 'GShow' to 'Show'.
 class GLift f where
-    glift :: f a -> Q Exp
-    default glift :: Lift (f a) => f a -> Q Exp
-    glift = lift
+  glift :: f a -> Q Exp
+  default glift :: Lift (f a) => f a -> Q Exp
+  glift = lift
 
 instance GLift f => Lift (AG f a) where
-    lift (AG a) = glift a
+  lift (AG a) = glift a
 
 -- See Note [The G, the Tag and the Auto].
 -- >>> :set -XGADTs
@@ -359,12 +362,14 @@ instance GLift f => Lift (AG f a) where
 -- >>> $(lift $ Some (ValueOf UBool True))
 -- Some (ValueOf UBool True)
 instance GLift f => Lift (Some f) where
-    lift (Some a) = ($(makeLift ''Some)) (Some (AG a))
+  lift (Some a) = ($(makeLift ''Some)) (Some (AG a))
 
 instance GLift uni => GLift (TypeIn uni)
+
 instance GLift uni => Lift (TypeIn uni a) where
-    lift (TypeIn uni) = ($(makeLift ''TypeIn)) (TypeIn (AG uni))
+  lift (TypeIn uni) = ($(makeLift ''TypeIn)) (TypeIn (AG uni))
 
 instance (GLift uni, Closed uni, uni `Everywhere` Lift) => GLift (ValueOf uni)
+
 instance (GLift uni, Closed uni, uni `Everywhere` Lift) => Lift (ValueOf uni a) where
-    lift (ValueOf uni x) = bring (Proxy @Lift) uni $ ($(makeLift ''ValueOf)) (ValueOf (AG uni) x)
+  lift (ValueOf uni x) = bring (Proxy @Lift) uni $ ($(makeLift ''ValueOf)) (ValueOf (AG uni) x)

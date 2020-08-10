@@ -1,29 +1,36 @@
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Main (main) where
 
-import           API                          (RunResult (RunResult))
-import           Control.Monad.Except         (runExceptT)
-import           Data.ByteString              (ByteString)
-import qualified Data.ByteString.Char8        as BSC
-import qualified Data.Text                    as Text
-import           Data.Time.Units              (Second)
+import API (RunResult (RunResult))
+import Control.Monad.Except (runExceptT)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as BSC
+import qualified Data.Text as Text
+import Data.Time.Units (Second)
 import qualified Interpreter
-import           Language.Haskell.Interpreter (InterpreterError, InterpreterResult (InterpreterResult),
-                                               SourceCode (SourceCode))
-import           Marlowe.Contracts            (escrow)
-import           Test.Hspec                   (Spec, describe, hspec, it, shouldBe)
-import           Text.RawString.QQ            (r)
+import Language.Haskell.Interpreter
+  ( InterpreterError,
+    InterpreterResult (InterpreterResult),
+    SourceCode (SourceCode),
+  )
+import Marlowe.Contracts (escrow)
+import Test.Hspec (Spec, describe, hspec, it, shouldBe)
+import Text.RawString.QQ (r)
 
 main :: IO ()
 main = hspec runBasicSpec
 
 runBasicSpec :: Spec
-runBasicSpec = describe "Basic Contract" $
+runBasicSpec =
+  describe "Basic Contract" $
     it "should compile" $ runHaskell escrow >>= (`shouldBe` escrowResult)
-    where
-        escrowResult = Right . InterpreterResult [] . RunResult $ [r|When [
+  where
+    escrowResult =
+      Right . InterpreterResult [] . RunResult $
+        [r|When [
   (Case
      (Deposit
         (AccountId 0
@@ -177,7 +184,9 @@ runBasicSpec = describe "Basic Contract" $
 
 runHaskell :: ByteString -> IO (Either InterpreterError (InterpreterResult RunResult))
 runHaskell =
-    let maxInterpretationTime = (15 :: Second)
-     in runExceptT .
-        Interpreter.runHaskell maxInterpretationTime .
-        SourceCode . Text.pack . BSC.unpack
+  let maxInterpretationTime = (15 :: Second)
+   in runExceptT
+        . Interpreter.runHaskell maxInterpretationTime
+        . SourceCode
+        . Text.pack
+        . BSC.unpack

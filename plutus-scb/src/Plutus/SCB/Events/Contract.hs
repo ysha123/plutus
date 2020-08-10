@@ -1,75 +1,87 @@
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DerivingVia       #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE StrictData        #-}
-{-# LANGUAGE TemplateHaskell   #-}
-module Plutus.SCB.Events.Contract(
-  -- $contract-events
-  ContractEvent(..)
-  , ContractInstanceId(..)
-  , IterationID
-  , ContractSCBRequest(..)
-  , ContractHandlersResponse(..)
-  , ContractResponse(..)
-  , PartiallyDecodedResponse(..)
-  , ContractInstanceState(..)
-  -- * Prisms
-  -- ** ContractRequest
-  , _AwaitSlotRequest
-  , _AwaitTxConfirmedRequest
-  , _UserEndpointRequest
-  , _OwnPubkeyRequest
-  , _UtxoAtRequest
-  , _NextTxAtRequest
-  , _WriteTxRequest
-  -- ** ContractResponse
-  , _AwaitSlotResponse
-  , _AwaitTxConfirmedResponse
-  , _UserEndpointResponse
-  , _OwnPubkeyResponse
-  , _UtxoAtResponse
-  , _NextTxAtResponse
-  , _WriteTxResponse
-  -- ** ContractEvent
-  , _ContractInboxMessage
-  , _ContractInstanceStateUpdateEvent
-  ) where
+{-# LANGUAGE StrictData #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-import           Control.Lens.TH                                   (makePrisms)
-import           Data.Aeson                                        (FromJSON, FromJSONKey, ToJSON, ToJSONKey, Value,
-                                                                    (.:))
-import qualified Data.Aeson                                        as JSON
-import qualified Data.Aeson.Encode.Pretty                          as JSON
-import qualified Data.ByteString.Lazy.Char8                        as BS8
-import qualified Data.Text                                         as Text
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Extras                  (PrettyShow (..))
-import           Data.UUID                                         (UUID)
-import           GHC.Generics                                      (Generic)
-import           Servant                                           (FromHttpApiData)
+module Plutus.SCB.Events.Contract
+  ( -- $contract-events
+    ContractEvent (..),
+    ContractInstanceId (..),
+    IterationID,
+    ContractSCBRequest (..),
+    ContractHandlersResponse (..),
+    ContractResponse (..),
+    PartiallyDecodedResponse (..),
+    ContractInstanceState (..),
 
-import qualified Language.Plutus.Contract.Effects.WriteTx          as W
-import           Language.Plutus.Contract.Resumable                (IterationID)
-import qualified Language.Plutus.Contract.Resumable                as Contract
-import qualified Language.Plutus.Contract.State                    as Contract
-import           Ledger                                            (TxId)
-import           Ledger.Address                                    (Address)
-import           Ledger.Constraints.OffChain                       (UnbalancedTx)
-import           Ledger.Crypto                                     (PubKey)
-import           Ledger.Slot                                       (Slot)
+    -- * Prisms
 
-import           Language.Plutus.Contract.Effects.AwaitSlot        (WaitingForSlot)
-import           Language.Plutus.Contract.Effects.AwaitTxConfirmed (TxConfirmed (..))
-import           Language.Plutus.Contract.Effects.ExposeEndpoint   (ActiveEndpoint (..), EndpointDescription (..),
-                                                                    EndpointValue)
-import           Language.Plutus.Contract.Effects.OwnPubKey        (OwnPubKeyRequest)
-import           Language.Plutus.Contract.Effects.UtxoAt           (UtxoAtAddress)
+    -- ** ContractRequest
+    _AwaitSlotRequest,
+    _AwaitTxConfirmedRequest,
+    _UserEndpointRequest,
+    _OwnPubkeyRequest,
+    _UtxoAtRequest,
+    _NextTxAtRequest,
+    _WriteTxRequest,
 
-import           Plutus.SCB.Utils                                  (abbreviate)
-import           Wallet.Effects                                    (AddressChangeRequest, AddressChangeResponse)
+    -- ** ContractResponse
+    _AwaitSlotResponse,
+    _AwaitTxConfirmedResponse,
+    _UserEndpointResponse,
+    _OwnPubkeyResponse,
+    _UtxoAtResponse,
+    _NextTxAtResponse,
+    _WriteTxResponse,
+
+    -- ** ContractEvent
+    _ContractInboxMessage,
+    _ContractInstanceStateUpdateEvent,
+  )
+where
+
+import Control.Lens.TH (makePrisms)
+import Data.Aeson
+  ( FromJSON,
+    FromJSONKey,
+    ToJSON,
+    ToJSONKey,
+    Value,
+    (.:),
+  )
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Encode.Pretty as JSON
+import qualified Data.ByteString.Lazy.Char8 as BS8
+import qualified Data.Text as Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Extras (PrettyShow (..))
+import Data.UUID (UUID)
+import GHC.Generics (Generic)
+import Language.Plutus.Contract.Effects.AwaitSlot (WaitingForSlot)
+import Language.Plutus.Contract.Effects.AwaitTxConfirmed (TxConfirmed (..))
+import Language.Plutus.Contract.Effects.ExposeEndpoint
+  ( ActiveEndpoint (..),
+    EndpointDescription (..),
+    EndpointValue,
+  )
+import Language.Plutus.Contract.Effects.OwnPubKey (OwnPubKeyRequest)
+import Language.Plutus.Contract.Effects.UtxoAt (UtxoAtAddress)
+import qualified Language.Plutus.Contract.Effects.WriteTx as W
+import Language.Plutus.Contract.Resumable (IterationID)
+import qualified Language.Plutus.Contract.Resumable as Contract
+import qualified Language.Plutus.Contract.State as Contract
+import Ledger (TxId)
+import Ledger.Address (Address)
+import Ledger.Constraints.OffChain (UnbalancedTx)
+import Ledger.Crypto (PubKey)
+import Ledger.Slot (Slot)
+import Plutus.SCB.Utils (abbreviate)
+import Servant (FromHttpApiData)
+import Wallet.Effects (AddressChangeRequest, AddressChangeResponse)
 
 -- $contract-events
 -- The events that compiled Plutus contracts are concerned with. For each type
@@ -107,116 +119,123 @@ one of those requests being handled.
 -}
 
 -- | Unique ID for contract instance
-newtype ContractInstanceId = ContractInstanceId { unContractInstanceId :: UUID }
-    deriving (Eq, Ord, Show, Generic)
-    deriving newtype (FromHttpApiData, FromJSONKey, ToJSONKey)
-    deriving anyclass (FromJSON, ToJSON)
-    deriving Pretty via (PrettyShow UUID)
+newtype ContractInstanceId = ContractInstanceId {unContractInstanceId :: UUID}
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromHttpApiData, FromJSONKey, ToJSONKey)
+  deriving anyclass (FromJSON, ToJSON)
+  deriving (Pretty) via (PrettyShow UUID)
 
-data ContractSCBRequest =
-  AwaitSlotRequest WaitingForSlot -- ^ Wait until a slot number is reached
-  | AwaitTxConfirmedRequest TxId -- ^ Wait for a transaction to be confirmed (deeper than k blocks) TODO: confirmation levels
-  | UserEndpointRequest ActiveEndpoint -- ^ Expose a named endpoint to the user. The endpoints' schemas can be obtained statically from the contract (using 'Language.Plutus.Contract.IOTS.rowSchema'), so they are not included in the message.
-  | OwnPubkeyRequest OwnPubKeyRequest -- ^ Request a public key. It is expected that the wallet treats any outputs locked by this public key as part of its own funds.
-  | UtxoAtRequest Address -- ^ Get the unspent transaction outputs at the address.
-  | NextTxAtRequest AddressChangeRequest -- ^ Wait for the next transaction that modifies the UTXO at the address and return it.
-  | WriteTxRequest UnbalancedTx -- ^ Submit an unbalanced transaction to the SCB.
-  deriving  (Eq, Show, Generic)
+data ContractSCBRequest
+  = -- | Wait until a slot number is reached
+    AwaitSlotRequest WaitingForSlot
+  | -- | Wait for a transaction to be confirmed (deeper than k blocks) TODO: confirmation levels
+    AwaitTxConfirmedRequest TxId
+  | -- | Expose a named endpoint to the user. The endpoints' schemas can be obtained statically from the contract (using 'Language.Plutus.Contract.IOTS.rowSchema'), so they are not included in the message.
+    UserEndpointRequest ActiveEndpoint
+  | -- | Request a public key. It is expected that the wallet treats any outputs locked by this public key as part of its own funds.
+    OwnPubkeyRequest OwnPubKeyRequest
+  | -- | Get the unspent transaction outputs at the address.
+    UtxoAtRequest Address
+  | -- | Wait for the next transaction that modifies the UTXO at the address and return it.
+    NextTxAtRequest AddressChangeRequest
+  | -- | Submit an unbalanced transaction to the SCB.
+    WriteTxRequest UnbalancedTx
+  deriving (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 -- | 'ContractSCBRequest' with a 'FromJSON' instance that is compatible with
 --   the 'ToJSON' instance of 'Language.Plutus.Contract.Schema.Handlers'.
-newtype ContractHandlersResponse = ContractHandlersResponse { unContractHandlersResponse :: ContractSCBRequest }
+newtype ContractHandlersResponse = ContractHandlersResponse {unContractHandlersResponse :: ContractSCBRequest}
 
 instance FromJSON ContractHandlersResponse where
-    parseJSON = JSON.withObject "ContractHandlersResponse" $ \v -> ContractHandlersResponse <$> do
-        (tag :: Text.Text) <- v .: "tag"
-        case tag of
-            "slot"            -> AwaitSlotRequest <$> v .: "value"
-            "tx-confirmation" -> AwaitTxConfirmedRequest <$> v .: "value"
-            "own-pubkey"      -> OwnPubkeyRequest <$> v .: "value"
-            "utxo-at"         -> UtxoAtRequest <$> v.: "value"
-            "address"         -> NextTxAtRequest <$> v .: "value"
-            "tx"              -> WriteTxRequest <$> v .: "value"
-            _                 -> UserEndpointRequest <$> v .: "value"
+  parseJSON = JSON.withObject "ContractHandlersResponse" $ \v ->
+    ContractHandlersResponse <$> do
+      (tag :: Text.Text) <- v .: "tag"
+      case tag of
+        "slot" -> AwaitSlotRequest <$> v .: "value"
+        "tx-confirmation" -> AwaitTxConfirmedRequest <$> v .: "value"
+        "own-pubkey" -> OwnPubkeyRequest <$> v .: "value"
+        "utxo-at" -> UtxoAtRequest <$> v .: "value"
+        "address" -> NextTxAtRequest <$> v .: "value"
+        "tx" -> WriteTxRequest <$> v .: "value"
+        _ -> UserEndpointRequest <$> v .: "value"
 
 instance Pretty ContractSCBRequest where
-    pretty = \case
-        AwaitSlotRequest s -> "AwaitSlot:" <+> pretty s
-        AwaitTxConfirmedRequest t -> "AwaitTxConfirmed:" <+> pretty t
-        UserEndpointRequest t -> "UserEndpoint:" <+> pretty t
-        OwnPubkeyRequest r -> "OwnPubKey:" <+> pretty r
-        UtxoAtRequest a -> "UtxoAt:" <+> pretty a
-        NextTxAtRequest a -> "NextTxAt:" <+> pretty a
-        WriteTxRequest u -> "WriteTx:" <+> pretty u
+  pretty = \case
+    AwaitSlotRequest s -> "AwaitSlot:" <+> pretty s
+    AwaitTxConfirmedRequest t -> "AwaitTxConfirmed:" <+> pretty t
+    UserEndpointRequest t -> "UserEndpoint:" <+> pretty t
+    OwnPubkeyRequest r -> "OwnPubKey:" <+> pretty r
+    UtxoAtRequest a -> "UtxoAt:" <+> pretty a
+    NextTxAtRequest a -> "NextTxAt:" <+> pretty a
+    WriteTxRequest u -> "WriteTx:" <+> pretty u
 
-data ContractResponse =
-  AwaitSlotResponse Slot
+data ContractResponse
+  = AwaitSlotResponse Slot
   | AwaitTxConfirmedResponse TxConfirmed
   | UserEndpointResponse EndpointDescription (EndpointValue Value)
   | OwnPubkeyResponse PubKey
   | UtxoAtResponse UtxoAtAddress
   | NextTxAtResponse AddressChangeResponse
   | WriteTxResponse W.WriteTxResponse
-  deriving  (Eq, Show, Generic)
+  deriving (Eq, Show, Generic)
   deriving anyclass (FromJSON, ToJSON)
 
 instance Pretty ContractResponse where
-    pretty = \case
-        AwaitSlotResponse s            -> "AwaitSlot:" <+> pretty s
-        UserEndpointResponse n r       -> "UserEndpoint:" <+> pretty n <+> pretty r
-        OwnPubkeyResponse pk           -> "OwnPubKey:" <+> pretty pk
-        UtxoAtResponse utxo            -> "UtxoAt:" <+> pretty utxo
-        NextTxAtResponse rsp        -> "NextTxAt:" <+> pretty rsp
-        WriteTxResponse w           -> "WriteTx:" <+> pretty w
-        AwaitTxConfirmedResponse w  -> "AwaitTxConfirmed:" <+> pretty w
+  pretty = \case
+    AwaitSlotResponse s -> "AwaitSlot:" <+> pretty s
+    UserEndpointResponse n r -> "UserEndpoint:" <+> pretty n <+> pretty r
+    OwnPubkeyResponse pk -> "OwnPubKey:" <+> pretty pk
+    UtxoAtResponse utxo -> "UtxoAt:" <+> pretty utxo
+    NextTxAtResponse rsp -> "NextTxAt:" <+> pretty rsp
+    WriteTxResponse w -> "WriteTx:" <+> pretty w
+    AwaitTxConfirmedResponse w -> "AwaitTxConfirmed:" <+> pretty w
 
-data ContractInstanceState t =
-    ContractInstanceState
-        { csContract           :: ContractInstanceId
-        , csCurrentIteration   :: IterationID
-        , csCurrentState       :: PartiallyDecodedResponse ContractSCBRequest
-        , csContractDefinition :: t
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+data ContractInstanceState t = ContractInstanceState
+  { csContract :: ContractInstanceId,
+    csCurrentIteration :: IterationID,
+    csCurrentState :: PartiallyDecodedResponse ContractSCBRequest,
+    csContractDefinition :: t
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Pretty t => Pretty (ContractInstanceState t) where
-    pretty ContractInstanceState{csContract, csCurrentIteration, csCurrentState, csContractDefinition} =
-        hang 2 $ vsep
-            [ "Instance:" <+> pretty csContract
-            , "Iteration:" <+> pretty csCurrentIteration
-            , "State:" <+> pretty csCurrentState
-            , "Contract definition:" <+> pretty csContractDefinition
-            ]
+  pretty ContractInstanceState {csContract, csCurrentIteration, csCurrentState, csContractDefinition} =
+    hang 2 $
+      vsep
+        [ "Instance:" <+> pretty csContract,
+          "Iteration:" <+> pretty csCurrentIteration,
+          "State:" <+> pretty csCurrentState,
+          "Contract definition:" <+> pretty csContractDefinition
+        ]
 
-data PartiallyDecodedResponse v =
-    PartiallyDecodedResponse
-        { newState :: Contract.State Value
-        , hooks    :: [Contract.Request v]
-        }
-    deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
-    deriving anyclass (ToJSON, FromJSON)
+data PartiallyDecodedResponse v = PartiallyDecodedResponse
+  { newState :: Contract.State Value,
+    hooks :: [Contract.Request v]
+  }
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Pretty v => Pretty (PartiallyDecodedResponse v) where
-    pretty PartiallyDecodedResponse {newState, hooks} =
-        vsep
-            [ "State:"
-            , indent 2 $ pretty $ abbreviate 120 $ Text.pack $ BS8.unpack $ JSON.encodePretty newState
-            , "Hooks:"
-            , indent 2 (vsep $ pretty <$> hooks)
-            ]
+  pretty PartiallyDecodedResponse {newState, hooks} =
+    vsep
+      [ "State:",
+        indent 2 $ pretty $ abbreviate 120 $ Text.pack $ BS8.unpack $ JSON.encodePretty newState,
+        "Hooks:",
+        indent 2 (vsep $ pretty <$> hooks)
+      ]
 
-data ContractEvent t =
-    ContractInboxMessage ContractInstanceId (Contract.Response ContractResponse)
-    | ContractInstanceStateUpdateEvent (ContractInstanceState t)
-    deriving (Show, Eq, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+data ContractEvent t
+  = ContractInboxMessage ContractInstanceId (Contract.Response ContractResponse)
+  | ContractInstanceStateUpdateEvent (ContractInstanceState t)
+  deriving (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Pretty t => Pretty (ContractEvent t) where
-    pretty = \case
-        ContractInboxMessage mbx sb -> "InboxMessage:" <+> pretty mbx <+> pretty sb
-        ContractInstanceStateUpdateEvent m -> "StateUpdate:" <+> pretty m
+  pretty = \case
+    ContractInboxMessage mbx sb -> "InboxMessage:" <+> pretty mbx <+> pretty sb
+    ContractInstanceStateUpdateEvent m -> "StateUpdate:" <+> pretty m
 
 makePrisms ''ContractSCBRequest
 makePrisms ''ContractResponse

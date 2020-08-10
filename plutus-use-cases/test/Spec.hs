@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main(main) where
+
+module Main (main) where
 
 import qualified Spec.Crowdfunding
 import qualified Spec.Currency
@@ -15,8 +16,8 @@ import qualified Spec.PubKey
 import qualified Spec.Rollup
 import qualified Spec.TokenAccount
 import qualified Spec.Vesting
-import           Test.Tasty
-import           Test.Tasty.Hedgehog       (HedgehogTestLimit (..))
+import Test.Tasty
+import Test.Tasty.Hedgehog (HedgehogTestLimit (..))
 
 main :: IO ()
 main = defaultMain tests
@@ -24,24 +25,26 @@ main = defaultMain tests
 -- | Number of successful tests for each hedgehog property.
 --   The default is 100 but we use a smaller number here in order to speed up
 --   the test suite.
---
 limit :: HedgehogTestLimit
 limit = HedgehogTestLimit (Just 5)
 
 tests :: TestTree
-tests = localOption limit $ testGroup "use cases" [
-    Spec.Crowdfunding.tests,
-    Spec.Vesting.tests,
-    Spec.ErrorHandling.tests,
-    Spec.Future.tests,
-    Spec.Game.tests,
-    Spec.MultiSig.tests,
-    Spec.MultiSigStateMachine.tests,
-    Spec.Currency.tests,
-    Spec.PubKey.tests,
-    Spec.Escrow.tests,
-    Spec.GameStateMachine.tests,
-    Spec.Rollup.tests,
-    Spec.TokenAccount.tests,
-    Spec.PingPong.tests
-    ]
+tests =
+  localOption limit $
+    testGroup
+      "use cases"
+      [ Spec.Crowdfunding.tests,
+        Spec.Vesting.tests,
+        Spec.ErrorHandling.tests,
+        Spec.Future.tests,
+        Spec.Game.tests,
+        Spec.MultiSig.tests,
+        Spec.MultiSigStateMachine.tests,
+        Spec.Currency.tests,
+        Spec.PubKey.tests,
+        Spec.Escrow.tests,
+        Spec.GameStateMachine.tests,
+        Spec.Rollup.tests,
+        Spec.TokenAccount.tests,
+        Spec.PingPong.tests
+      ]

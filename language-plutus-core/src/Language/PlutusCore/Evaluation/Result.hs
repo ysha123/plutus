@@ -1,56 +1,55 @@
--- | This module defines a common type various evaluation machine use to return their results.
-
-{-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 
+-- | This module defines a common type various evaluation machine use to return their results.
 module Language.PlutusCore.Evaluation.Result
-    ( EvaluationResult (..)
-    , isEvaluationSuccess
-    , isEvaluationFailure
-    ) where
+  ( EvaluationResult (..),
+    isEvaluationSuccess,
+    isEvaluationFailure,
+  )
+where
 
-import           Language.PlutusCore.Pretty
-
-import           Control.Applicative
-import           PlutusPrelude
+import Control.Applicative
+import Language.PlutusCore.Pretty
+import PlutusPrelude
 
 -- | The parameterized type of results various evaluation engines return.
 -- On the PLC side this becomes (via @makeKnown@) either a call to 'Error' or
 -- a value of the PLC counterpart of type @a@.
 data EvaluationResult a
-    = EvaluationSuccess a
-    | EvaluationFailure
-    deriving (Show, Eq, Generic, Functor, Foldable, Traversable, NFData)
+  = EvaluationSuccess a
+  | EvaluationFailure
+  deriving (Show, Eq, Generic, Functor, Foldable, Traversable, NFData)
 
 instance Applicative EvaluationResult where
-    pure = EvaluationSuccess
+  pure = EvaluationSuccess
 
-    EvaluationSuccess f <*> a = fmap f a
-    EvaluationFailure   <*> _ = EvaluationFailure
+  EvaluationSuccess f <*> a = fmap f a
+  EvaluationFailure <*> _ = EvaluationFailure
 
 instance Monad EvaluationResult where
-    EvaluationSuccess x >>= f = f x
-    EvaluationFailure   >>= _ = EvaluationFailure
+  EvaluationSuccess x >>= f = f x
+  EvaluationFailure >>= _ = EvaluationFailure
 
 instance Alternative EvaluationResult where
-    empty = EvaluationFailure
+  empty = EvaluationFailure
 
-    EvaluationSuccess x <|> _ = EvaluationSuccess x
-    EvaluationFailure   <|> a = a
+  EvaluationSuccess x <|> _ = EvaluationSuccess x
+  EvaluationFailure <|> a = a
 
 instance PrettyConst a => PrettyConst (EvaluationResult a) where
-    prettyConst (EvaluationSuccess x) = prettyConst x
-    prettyConst EvaluationFailure     = "Failure"
+  prettyConst (EvaluationSuccess x) = prettyConst x
+  prettyConst EvaluationFailure = "Failure"
 
 instance PrettyBy config a => PrettyBy config (EvaluationResult a) where
-    prettyBy config (EvaluationSuccess x) = prettyBy config x
-    prettyBy _      EvaluationFailure     = "Failure"
+  prettyBy config (EvaluationSuccess x) = prettyBy config x
+  prettyBy _ EvaluationFailure = "Failure"
 
 instance PrettyClassic a => Pretty (EvaluationResult a) where
-    pretty = prettyClassicDef
+  pretty = prettyClassicDef
 
 -- | Check whether an 'EvaluationResult' is an 'EvaluationSuccess'.
 isEvaluationSuccess :: EvaluationResult a -> Bool

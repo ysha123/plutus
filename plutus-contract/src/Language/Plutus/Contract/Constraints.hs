@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MonoLocalBinds   #-}
-module Language.Plutus.Contract.Constraints(module Constraints) where
+{-# LANGUAGE MonoLocalBinds #-}
 
-import           Ledger.Constraints as Constraints
+module Language.Plutus.Contract.Constraints (module Constraints) where
+
+import Ledger.Constraints as Constraints

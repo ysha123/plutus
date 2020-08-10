@@ -1,19 +1,17 @@
-{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE TypeOperators #-}
+
 -- | Simulating laziness.
 module Language.PlutusTx.Compiler.Laziness where
 
+import qualified GhcPlugins as GHC
+import Language.PlutusCore.Quote
+import qualified Language.PlutusIR as PIR
 import {-# SOURCE #-} Language.PlutusTx.Compiler.Expr
 import {-# SOURCE #-} Language.PlutusTx.Compiler.Type
-import           Language.PlutusTx.Compiler.Types
-import           Language.PlutusTx.PIRTypes
-
-import qualified Language.PlutusIR                as PIR
-
-import           Language.PlutusCore.Quote
-
-import qualified GhcPlugins                       as GHC
+import Language.PlutusTx.Compiler.Types
+import Language.PlutusTx.PIRTypes
 
 {- Note [Object- vs meta-language combinators]
 Many of the things we define as *meta*-langugage combinators (i.e. operations on terms) could be defined
@@ -35,12 +33,13 @@ delayType orig = PIR.TyFun () <$> compileType GHC.unitTy <*> pure orig
 
 delayVar :: Compiling uni m => PIRVar uni -> m (PIRVar uni)
 delayVar (PIR.VarDecl () n ty) = do
-    ty' <- delayType ty
-    pure $ PIR.VarDecl () n ty'
+  ty' <- delayType ty
+  pure $ PIR.VarDecl () n ty'
 
-force
-    :: Compiling uni m
-    => PIRTerm uni -> m (PIRTerm uni)
+force ::
+  Compiling uni m =>
+  PIRTerm uni ->
+  m (PIRTerm uni)
 force thunk = PIR.Apply () thunk <$> compileExpr (GHC.Var GHC.unitDataConId)
 
 maybeDelay :: Compiling uni m => Bool -> PIRTerm uni -> m (PIRTerm uni)
@@ -52,7 +51,9 @@ maybeDelayVar yes v = if yes then delayVar v else pure v
 maybeDelayType :: Compiling uni m => Bool -> PIRType uni -> m (PIRType uni)
 maybeDelayType yes t = if yes then delayType t else pure t
 
-maybeForce
-    :: Compiling uni m
-    => Bool -> PIRTerm uni -> m (PIRTerm uni)
+maybeForce ::
+  Compiling uni m =>
+  Bool ->
+  PIRTerm uni ->
+  m (PIRTerm uni)
 maybeForce yes t = if yes then force t else pure t

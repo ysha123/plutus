@@ -1,42 +1,48 @@
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
+
 module WebSocket where
 
-import           Control.Concurrent.STM          (STM)
-import           Control.Concurrent.STM.TVar     (TVar, newTVar)
-import           Control.Exception               (SomeException, handle)
-import           Control.Monad                   (forever)
-import           Control.Monad.Except            (MonadError, throwError)
-import           Control.Monad.IO.Class          (MonadIO, liftIO)
-import           Control.Newtype.Generics        (Newtype, over, unpack)
-import           Data.Aeson                      (FromJSON, ToJSON)
-import           Data.Map.Strict                 (Map)
-import qualified Data.Map.Strict                 as Map
-import           Data.Text                       (Text)
-import           Data.UUID                       (UUID)
-import           Data.UUID.V4                    (nextRandom)
-import           GHC.Generics                    (Generic)
+import Control.Concurrent.STM (STM)
+import Control.Concurrent.STM.TVar (TVar, newTVar)
+import Control.Exception (SomeException, handle)
+import Control.Monad (forever)
+import Control.Monad.Except (MonadError, throwError)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Newtype.Generics (Newtype, over, unpack)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Text (Text)
+import Data.UUID (UUID)
+import Data.UUID.V4 (nextRandom)
+import GHC.Generics (Generic)
 import qualified Marlowe.Symbolic.Types.Response as MSRes
-import           Network.WebSockets              (WebSocketsData)
-import           Network.WebSockets.Connection   (Connection, PendingConnection, acceptRequest, receiveData,
-                                                  withPingThread)
+import Network.WebSockets (WebSocketsData)
+import Network.WebSockets.Connection
+  ( Connection,
+    PendingConnection,
+    acceptRequest,
+    receiveData,
+    withPingThread,
+  )
 
 data WebSocketRequestMessage
-    = CheckForWarnings String String String
-    deriving (Generic, ToJSON, FromJSON)
+  = CheckForWarnings String String String
+  deriving (Generic, ToJSON, FromJSON)
 
 data WebSocketResponseMessage
-    = CheckForWarningsResult MSRes.Result
-    | OtherError String
-    deriving (Generic, ToJSON, FromJSON)
+  = CheckForWarningsResult MSRes.Result
+  | OtherError String
+  deriving (Generic, ToJSON, FromJSON)
 
 -- | Each Connection is allowed only 1 active request at a time
 --   We model this with Maybe since we also want the @UUID@ of this request
 newtype Registry = Registry (Map UUID (Connection, Maybe UUID))
-    deriving (Generic, Newtype)
+  deriving (Generic, Newtype)
 
 newRegistry :: STM (TVar Registry)
 newRegistry = newTVar $ Registry Map.empty
@@ -58,24 +64,24 @@ finishWaiting uuid = over Registry (Map.adjust (\(connection, _) -> (connection,
 
 isWaiting :: UUID -> UUID -> Registry -> Bool
 isWaiting uuid waiting registry = case Map.lookup uuid (unpack registry) of
-                                    Nothing                  -> False
-                                    Just (_, currentWaiting) -> Just waiting == currentWaiting
+  Nothing -> False
+  Just (_, currentWaiting) -> Just waiting == currentWaiting
 
 -- | Take a @PendingConnection@ and returns a @UUID@ and @Connection$ for the user
 initializeConnection :: PendingConnection -> IO (UUID, Connection)
 initializeConnection pending = do
-    connection <- acceptRequest pending
-    uuid <- nextRandom
-    pure (uuid, connection)
+  connection <- acceptRequest pending
+  uuid <- nextRandom
+  pure (uuid, connection)
 
 -- | Run an IO function that keeps being applied to new messages being received
 --   This function terminates when the connection is closed
 runWithConnection :: (WebSocketsData a) => Connection -> (a -> IO ()) -> IO ()
 runWithConnection connection f =
-    handle disconnect . withPingThread connection 30 (pure ()) . forever $ do
-        msg <- receiveData connection
-        f msg
-        pure Nothing
+  handle disconnect . withPingThread connection 30 (pure ()) . forever $ do
+    msg <- receiveData connection
+    f msg
+    pure Nothing
   where
     disconnect :: SomeException -> IO ()
     disconnect _ = pure ()

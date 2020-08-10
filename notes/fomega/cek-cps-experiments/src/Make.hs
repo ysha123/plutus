@@ -1,37 +1,38 @@
--- | Smart constructors of PLC constants.
-
 {-# LANGUAGE GADTs #-}
 
+-- | Smart constructors of PLC constants.
 module Language.PlutusCore.Constant.Make
-    ( toBoundsInt
-    , makeBuiltinInt
-    , makeBuiltinBS
-    , makeBuiltinSize
-    , makeSizedConstant
-    , makeBuiltinBool
-    , makeBuiltin
-    , unsafeMakeBuiltin
-    ) where
+  ( toBoundsInt,
+    makeBuiltinInt,
+    makeBuiltinBS,
+    makeBuiltinSize,
+    makeSizedConstant,
+    makeBuiltinBool,
+    makeBuiltin,
+    unsafeMakeBuiltin,
+  )
+where
 
-import           Language.PlutusCore.Constant.Typed
-import           Language.PlutusCore.Name
-import           Language.PlutusCore.Quote
-import           Language.PlutusCore.StdLib.Data.Bool
-import           Language.PlutusCore.Type
-import           PlutusPrelude
-
-import           Data.Bits                            (bit)
-import qualified Data.ByteString.Lazy                 as BSL
-import           Data.Maybe
+import Data.Bits (bit)
+import qualified Data.ByteString.Lazy as BSL
+import Data.Maybe
+import Language.PlutusCore.Constant.Typed
+import Language.PlutusCore.Name
+import Language.PlutusCore.Quote
+import Language.PlutusCore.StdLib.Data.Bool
+import Language.PlutusCore.Type
+import PlutusPrelude
 
 -- | Return the @[-2^(8s - 1), 2^(8s - 1))@ bounds for integers of a given 'Size'.
 toBoundsInt :: Size -> (Integer, Integer)
-toBoundsInt s = (-b, b) where
-    b = bit (8 * fromIntegral s - 1)  -- This is much quicker than 2^n for large
+toBoundsInt s = (- b, b)
+  where
+    b = bit (8 * fromIntegral s - 1) -- This is much quicker than 2^n for large
 
 -- | Check whether an 'Integer' is in the @[-2^(8s - 1), 2^(8s - 1))@ interval.
 checkBoundsInt :: Size -> Integer -> Bool
-checkBoundsInt s i = low <= i && i < high where
+checkBoundsInt s i = low <= i && i < high
+  where
     (low, high) = toBoundsInt s
 
 -- | Check whether the length of a 'ByteString' is less than or equal to a given 'Size'.
@@ -57,8 +58,8 @@ makeBuiltinSize size size' = checkBoundsSize size size' ? BuiltinSize () size
 -- | Convert a Haskell value to the corresponding PLC constant indexed by size
 -- checking all constraints (e.g. an 'Integer' is in appropriate bounds) along the way.
 makeSizedConstant :: Size -> TypedBuiltinSized a -> a -> Maybe (Constant ())
-makeSizedConstant size TypedBuiltinSizedInt  int   = makeBuiltinInt  size int
-makeSizedConstant size TypedBuiltinSizedBS   bs    = makeBuiltinBS   size bs
+makeSizedConstant size TypedBuiltinSizedInt int = makeBuiltinInt size int
+makeSizedConstant size TypedBuiltinSizedBS bs = makeBuiltinBS size bs
 makeSizedConstant size TypedBuiltinSizedSize size' = makeBuiltinSize size size'
 
 -- | Convert a 'Bool' to the corresponding PLC's @boolean@.
@@ -69,13 +70,14 @@ makeBuiltinBool b = if b then getBuiltinTrue else getBuiltinFalse
 -- (e.g. an 'Integer' is in appropriate bounds) along the way.
 makeBuiltin :: TypedBuiltinValue Size a -> Quote (Maybe (Value TyName Name ()))
 makeBuiltin (TypedBuiltinValue tb x) = case tb of
-    (TypedBuiltinSized se tbs) ->
-        return $ Constant () <$> makeSizedConstant (flattenSizeEntry se) tbs x
-    TypedBuiltinBool           -> Just <$> makeBuiltinBool x
+  (TypedBuiltinSized se tbs) ->
+    return $ Constant () <$> makeSizedConstant (flattenSizeEntry se) tbs x
+  TypedBuiltinBool -> Just <$> makeBuiltinBool x
 
 -- | Convert a Haskell value to a PLC value checking all constraints
 -- (e.g. an 'Integer' is in appropriate bounds) along the way and
 -- fail in case constraints are not satisfied.
 unsafeMakeBuiltin :: TypedBuiltinValue Size a -> Quote (Value TyName Name ())
-unsafeMakeBuiltin tbv = fromMaybe err <$> makeBuiltin tbv where
+unsafeMakeBuiltin tbv = fromMaybe err <$> makeBuiltin tbv
+  where
     err = error $ "unsafeDupMakeConstant: out of bounds: " ++ prettyString tbv

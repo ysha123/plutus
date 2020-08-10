@@ -1,14 +1,15 @@
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE Rank2Types         #-}
-{-# LANGUAGE TypeFamilies       #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE TypeFamilies #-}
+
 -- | 'AddressMap's and functions for working on them.
 --
 -- 'AddressMap's are used to represent the limited knowledge about the state of the ledger that
 -- the wallet retains. Rather than keeping the entire ledger (which can be very large) the wallet
 -- only tracks the UTxOs at particular addresses.
-module Ledger.AddressMap(
-    AddressMap(..),
+module Ledger.AddressMap
+  ( AddressMap (..),
     UtxoMap,
     addAddress,
     addAddresses,
@@ -24,33 +25,41 @@ module Ledger.AddressMap(
     restrict,
     addressesTouched,
     outRefMap,
-    fromChain
-    ) where
+    fromChain,
+  )
+where
 
-import           Codec.Serialise.Class (Serialise)
-import           Control.Lens          (At (..), Index, IxValue, Ixed (..), Lens', at, lens, non, view, (&), (.~), (^.))
-import           Control.Monad         (join)
-import           Data.Aeson            (FromJSON (..), ToJSON (..))
-import qualified Data.Aeson            as JSON
-import qualified Data.Aeson.Extras     as JSON
-import           Data.Foldable         (fold)
-import           Data.Map              (Map)
-import qualified Data.Map              as Map
-import           Data.Maybe            (mapMaybe)
-import qualified Data.Set              as Set
-import           GHC.Generics          (Generic)
-
-import           Ledger                (Address, Tx (..), TxIn (..), TxOut (..), TxOutRef (..), TxOutTx (..), Value,
-                                        txId)
-import           Ledger.Blockchain
-import qualified Ledger.Tx             as Tx
+import Codec.Serialise.Class (Serialise)
+import Control.Lens (At (..), Index, IxValue, Ixed (..), Lens', at, lens, non, view, (&), (.~), (^.))
+import Control.Monad (join)
+import Data.Aeson (FromJSON (..), ToJSON (..))
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Extras as JSON
+import Data.Foldable (fold)
+import Data.Map (Map)
+import qualified Data.Map as Map
+import Data.Maybe (mapMaybe)
+import qualified Data.Set as Set
+import GHC.Generics (Generic)
+import Ledger
+  ( Address,
+    Tx (..),
+    TxIn (..),
+    TxOut (..),
+    TxOutRef (..),
+    TxOutTx (..),
+    Value,
+    txId,
+  )
+import Ledger.Blockchain
+import qualified Ledger.Tx as Tx
 
 type UtxoMap = Map TxOutRef TxOutTx
 
 -- | A map of 'Address'es and their unspent outputs.
-newtype AddressMap = AddressMap { getAddressMap :: Map Address UtxoMap }
-    deriving stock (Show, Eq, Generic)
-    deriving newtype (Serialise)
+newtype AddressMap = AddressMap {getAddressMap :: Map Address UtxoMap}
+  deriving stock (Show, Eq, Generic)
+  deriving newtype (Serialise)
 
 -- | An address map with a single unspent transaction output.
 singleton :: (Address, TxOutRef, Tx, TxOut) -> AddressMap
@@ -62,7 +71,7 @@ outRefMap (AddressMap am) = Map.unions (snd <$> Map.toList am)
 -- | Filter the transaction output references in the map
 filterRefs :: (TxOutRef -> TxOutTx -> Bool) -> AddressMap -> AddressMap
 filterRefs flt =
-    AddressMap . Map.map (Map.filterWithKey flt) . getAddressMap
+  AddressMap . Map.map (Map.filterWithKey flt) . getAddressMap
 
 -- NB: The ToJSON and FromJSON instance for AddressMap use the `Serialise`
 -- instance with a base16 encoding, similar to the instances in Types.hs.
@@ -72,29 +81,32 @@ filterRefs flt =
 -- than what we have here.
 
 instance ToJSON AddressMap where
-    toJSON = JSON.String . JSON.encodeSerialise
+  toJSON = JSON.String . JSON.encodeSerialise
 
 instance FromJSON AddressMap where
-    parseJSON = JSON.decodeSerialise
+  parseJSON = JSON.decodeSerialise
 
 instance Semigroup AddressMap where
-    (AddressMap l) <> (AddressMap r) = AddressMap (Map.unionWith add l r) where
-        add = Map.union
+  (AddressMap l) <> (AddressMap r) = AddressMap (Map.unionWith add l r)
+    where
+      add = Map.union
 
 instance Monoid AddressMap where
-    mappend = (<>)
-    mempty = AddressMap Map.empty
+  mappend = (<>)
+  mempty = AddressMap Map.empty
 
 type instance Index AddressMap = Address
+
 type instance IxValue AddressMap = Map TxOutRef TxOutTx
 
 instance Ixed AddressMap where
-    ix adr f (AddressMap mp) = AddressMap <$> ix adr f mp
+  ix adr f (AddressMap mp) = AddressMap <$> ix adr f mp
 
 instance At AddressMap where
-    at idx = lens g s where
-        g (AddressMap mp) = mp ^. at idx
-        s (AddressMap mp) utxo = AddressMap $ mp & at idx .~ utxo
+  at idx = lens g s
+    where
+      g (AddressMap mp) = mp ^. at idx
+      s (AddressMap mp) utxo = AddressMap $ mp & at idx .~ utxo
 
 -- | Get the funds available at a particular address.
 fundsAt :: Address -> Lens' AddressMap UtxoMap
@@ -103,7 +115,8 @@ fundsAt addr = at addr . non mempty
 -- | Add an address with no unspent outputs to a map. If the address already
 --   exists, do nothing.
 addAddress :: Address -> AddressMap -> AddressMap
-addAddress adr (AddressMap mp) = AddressMap $ Map.alter upd adr mp where
+addAddress adr (AddressMap mp) = AddressMap $ Map.alter upd adr mp
+  where
     upd :: Maybe UtxoMap -> Maybe UtxoMap
     upd = maybe (Just Map.empty) Just
 
@@ -117,33 +130,36 @@ values = Map.map (fold . Map.map (txOutValue . txOutTxOut)) . getAddressMap
 
 -- | Walk through the address map, applying an effectful function to each entry.
 traverseWithKey ::
-     Applicative f
-  => (Address -> Map TxOutRef TxOutTx -> f (Map TxOutRef TxOutTx))
-  -> AddressMap
-  -> f AddressMap
+  Applicative f =>
+  (Address -> Map TxOutRef TxOutTx -> f (Map TxOutRef TxOutTx)) ->
+  AddressMap ->
+  f AddressMap
 traverseWithKey f (AddressMap m) = AddressMap <$> Map.traverseWithKey f m
 
 -- | Create an 'AddressMap' with the unspent outputs of a single transaction.
 fromTxOutputs :: Tx -> AddressMap
 fromTxOutputs tx =
-    AddressMap . Map.fromListWith Map.union . fmap mkUtxo . zip [0..] . txOutputs $ tx where
+  AddressMap . Map.fromListWith Map.union . fmap mkUtxo . zip [0 ..] . txOutputs $ tx
+  where
     mkUtxo (i, t) = (txOutAddress t, Map.singleton (TxOutRef h i) (TxOutTx tx t))
     h = txId tx
 
 -- | Create a map of unspent transaction outputs to their addresses (the
 -- "inverse" of an 'AddressMap', without the values)
 knownAddresses :: AddressMap -> Map TxOutRef Address
-knownAddresses = Map.fromList . unRef . Map.toList . getAddressMap where
+knownAddresses = Map.fromList . unRef . Map.toList . getAddressMap
+  where
     unRef :: [(Address, Map TxOutRef TxOutTx)] -> [(TxOutRef, Address)]
     unRef lst = do
-        (a, outRefs) <- lst
-        (rf, _) <- Map.toList outRefs
-        pure (rf, a)
+      (a, outRefs) <- lst
+      (rf, _) <- Map.toList outRefs
+      pure (rf, a)
 
 -- | Update an 'AddressMap' with the inputs and outputs of a new
 -- transaction. @updateAddresses@ does /not/ add or remove any keys from the map.
 updateAddresses :: Tx -> AddressMap -> AddressMap
-updateAddresses tx utxo = AddressMap $ Map.mapWithKey upd (getAddressMap utxo) where
+updateAddresses tx utxo = AddressMap $ Map.mapWithKey upd (getAddressMap utxo)
+  where
     -- adds the newly produced outputs, and removes the consumed outputs, for
     -- an address `adr`
     upd :: Address -> Map TxOutRef TxOutTx -> Map TxOutRef TxOutTx
@@ -171,11 +187,12 @@ updateAllAddresses tx utxo = updateAddresses tx utxo <> fromTxOutputs tx
 
 -- | The inputs consumed by a transaction, indexed by address.
 inputs ::
-    Map TxOutRef Address
-    -- ^ A map of 'TxOutRef's to their 'Address'es
-    -> Tx
-    -> Map Address (Set.Set TxOutRef)
-inputs addrs = Map.fromListWith Set.union
+  -- | A map of 'TxOutRef's to their 'Address'es
+  Map TxOutRef Address ->
+  Tx ->
+  Map Address (Set.Set TxOutRef)
+inputs addrs =
+  Map.fromListWith Set.union
     . fmap (fmap Set.singleton . swap)
     . mapMaybe ((\a -> sequence (a, Map.lookup a addrs)) . txInRef)
     . Set.toList
@@ -191,7 +208,8 @@ swap (x, y) = (y, x)
 -- | Get the set of all addresses that the transaction spends outputs from
 --   or produces outputs to
 addressesTouched :: AddressMap -> Tx -> Set.Set Address
-addressesTouched utxo t = ins <> outs where
+addressesTouched utxo t = ins <> outs
+  where
     ins = Map.keysSet (inputs (knownAddresses utxo) t)
     outs = Map.keysSet (getAddressMap (fromTxOutputs t))
 

@@ -1,15 +1,17 @@
 {-# LANGUAGE NamedFieldPuns #-}
--- | Dealing with tokens
-module Ledger.Tokens(
-  -- $tokens
-  token
-  , outputsWith
-  , paidTo
-  ) where
 
-import           Ledger.Validation
-import           Ledger.Value      (CurrencySymbol, TokenName, Value, leq)
-import qualified Ledger.Value      as Value
+-- | Dealing with tokens
+module Ledger.Tokens
+  ( -- $tokens
+    token,
+    outputsWith,
+    paidTo,
+  )
+where
+
+import Ledger.Validation
+import Ledger.Value (CurrencySymbol, TokenName, Value, leq)
+import qualified Ledger.Value as Value
 
 -- $tokens
 -- The extended UTXO ledger with scripts that Plutus runs on supports
@@ -18,22 +20,25 @@ import qualified Ledger.Value      as Value
 -- a pair of 'CurrencySymbol' and 'TokenName'.
 -- To create a token use the
 
-{-# INLINABLE token #-}
+{-# INLINEABLE token #-}
+
 -- | A value that contains exactly the token.
 token :: CurrencySymbol -> TokenName -> Value
 token symbol name = Value.singleton symbol name 1
 
-{-# INLINABLE outputsWith #-}
+{-# INLINEABLE outputsWith #-}
+
 -- | The outputs of the 'ValidatorCtx' that carry a non-zero amount of the currency
 --   defined by the 'CurrencySymbol' and the 'TokenName'.
 outputsWith :: TxInfo -> CurrencySymbol -> TokenName -> [TxOut]
-outputsWith TxInfo{txInfoOutputs} symbol name =
-    filter (\output -> token symbol name  `leq` txOutValue output) txInfoOutputs
+outputsWith TxInfo {txInfoOutputs} symbol name =
+  filter (\output -> token symbol name `leq` txOutValue output) txInfoOutputs
 
-{-# INLINABLE paidTo #-}
+{-# INLINEABLE paidTo #-}
+
 -- | The total 'Value' paid by the pending transaction to outputs
 --   whose value also includes a non-zero amount of the currency
 --   & token
 paidTo :: TxInfo -> CurrencySymbol -> TokenName -> Value
 paidTo ptx symbol name =
-    foldMap txOutValue (outputsWith ptx symbol name)
+  foldMap txOutValue (outputsWith ptx symbol name)

@@ -1,5 +1,6 @@
-module Wallet.Emulator(
-    module Types
-    ) where
+module Wallet.Emulator
+  ( module Types,
+  )
+where
 
-import           Wallet.Emulator.Types as Types
+import Wallet.Emulator.Types as Types

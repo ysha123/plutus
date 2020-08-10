@@ -1,16 +1,16 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Main(main) where
+
+module Main (main) where
 
 import qualified Spec.Marlowe.Actus
-
-import           Test.Tasty
+import Test.Tasty
 
 main :: IO ()
 main = defaultMain tests
 
-
 tests :: TestTree
-tests = testGroup "Marlowe Contracts"
-        [
-                Spec.Marlowe.Actus.tests
-        ]
+tests =
+  testGroup
+    "Marlowe Contracts"
+    [ Spec.Marlowe.Actus.tests
+    ]

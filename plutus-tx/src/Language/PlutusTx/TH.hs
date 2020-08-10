@@ -1,19 +1,19 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
-module Language.PlutusTx.TH (
-    compile,
-    compileUntyped) where
 
-import           Data.Proxy
-import           Language.PlutusTx.Code
-import           Language.PlutusTx.Plugin.Utils
+module Language.PlutusTx.TH
+  ( compile,
+    compileUntyped,
+  )
+where
 
-import qualified Language.PlutusCore.Universe   as PLC
-
-import qualified Language.Haskell.TH            as TH
-import qualified Language.Haskell.TH.Syntax     as TH
-
+import Data.Proxy
+import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Syntax as TH
+import qualified Language.PlutusCore.Universe as PLC
+import Language.PlutusTx.Code
+import Language.PlutusTx.Plugin.Utils
 
 -- | Compile a quoted Haskell expression into a corresponding Plutus Core program.
 compile :: TH.Q (TH.TExp a) -> TH.Q (TH.TExp (CompiledCode PLC.DefaultUni a))
@@ -35,8 +35,8 @@ going to typecheck, and the result is always a CompiledCode, so that's also fine
 -- | Compile a quoted Haskell expression into a corresponding Plutus Core program.
 compileUntyped :: TH.Q TH.Exp -> TH.Q TH.Exp
 compileUntyped e = do
-    TH.addCorePlugin "Language.PlutusTx.Plugin"
-    loc <- TH.location
-    let locStr = TH.pprint loc
-    -- See note [Typed TH]
-    [| plc (Proxy :: Proxy $(TH.litT $ TH.strTyLit locStr)) $(e) |]
+  TH.addCorePlugin "Language.PlutusTx.Plugin"
+  loc <- TH.location
+  let locStr = TH.pprint loc
+  -- See note [Typed TH]
+  [|plc (Proxy :: Proxy $(TH.litT $ TH.strTyLit locStr)) $(e)|]

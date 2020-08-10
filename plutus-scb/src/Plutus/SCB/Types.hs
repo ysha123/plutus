@@ -1,164 +1,161 @@
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NamedFieldPuns     #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StrictData         #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StrictData #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Plutus.SCB.Types where
 
-import qualified Cardano.ChainIndex.Types       as ChainIndex
-import qualified Cardano.Node.Server            as NodeServer
-import qualified Cardano.SigningProcess.Server  as SigningProcess
-import qualified Cardano.Wallet.Server          as WalletServer
-import           Control.Lens.TH                (makePrisms)
-import           Data.Aeson                     (FromJSON, ToJSON)
-import           Data.Map.Strict                (Map)
-import qualified Data.Map.Strict                as Map
-import           Data.Text                      (Text)
-import           Data.Text.Prettyprint.Doc      (Pretty, pretty, viaShow, (<+>))
-import           Data.Time.Units                (Second)
-import           Data.UUID                      (UUID)
-import qualified Data.UUID                      as UUID
-import           GHC.Generics                   (Generic)
-import           Language.Plutus.Contract.Types (ContractError)
-import           Ledger                         (Block, Blockchain, Tx, TxId, txId)
-import           Ledger.Index                   as UtxoIndex
-import           Plutus.SCB.Events              (ContractInstanceId)
-import           Servant.Client                 (BaseUrl, ClientError)
-import           Wallet.API                     (WalletAPIError)
+import qualified Cardano.ChainIndex.Types as ChainIndex
+import qualified Cardano.Node.Server as NodeServer
+import qualified Cardano.SigningProcess.Server as SigningProcess
+import qualified Cardano.Wallet.Server as WalletServer
+import Control.Lens.TH (makePrisms)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Text (Text)
+import Data.Text.Prettyprint.Doc (Pretty, pretty, viaShow, (<+>))
+import Data.Time.Units (Second)
+import Data.UUID (UUID)
+import qualified Data.UUID as UUID
+import GHC.Generics (Generic)
+import Language.Plutus.Contract.Types (ContractError)
+import Ledger (Block, Blockchain, Tx, TxId, txId)
+import Ledger.Index as UtxoIndex
+import Plutus.SCB.Events (ContractInstanceId)
+import Servant.Client (BaseUrl, ClientError)
+import Wallet.API (WalletAPIError)
 
-newtype ContractExe =
-    ContractExe
-        { contractPath :: FilePath
-        }
-    deriving (Show, Eq, Ord, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+newtype ContractExe = ContractExe
+  { contractPath :: FilePath
+  }
+  deriving (Show, Eq, Ord, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 instance Pretty ContractExe where
-    pretty ContractExe {contractPath} = "Path:" <+> pretty contractPath
+  pretty ContractExe {contractPath} = "Path:" <+> pretty contractPath
 
 data SCBError
-    = FileNotFound FilePath
-    | ContractNotFound FilePath
-    | ContractInstanceNotFound ContractInstanceId
-    | SCBContractError ContractError
-    | WalletClientError ClientError
-    | NodeClientError ClientError
-    | SigningProcessError ClientError
-    | ChainIndexError ClientError
-    | WalletError WalletAPIError
-    | ContractCommandError Int Text
-    | InvalidUUIDError  Text
-    | OtherError Text
-    deriving (Show, Eq)
+  = FileNotFound FilePath
+  | ContractNotFound FilePath
+  | ContractInstanceNotFound ContractInstanceId
+  | SCBContractError ContractError
+  | WalletClientError ClientError
+  | NodeClientError ClientError
+  | SigningProcessError ClientError
+  | ChainIndexError ClientError
+  | WalletError WalletAPIError
+  | ContractCommandError Int Text
+  | InvalidUUIDError Text
+  | OtherError Text
+  deriving (Show, Eq)
 
 instance Pretty SCBError where
-    pretty = \case
-        FileNotFound fp -> "File not found:" <+> pretty fp
-        ContractNotFound fp -> "Contract not found:" <+> pretty fp
-        ContractInstanceNotFound i -> "Contract instance not found:" <+> pretty i
-        SCBContractError e -> "Contract error:" <+> pretty e
-        WalletClientError e -> "Wallet client error:" <+> viaShow e
-        NodeClientError e -> "Node client error:" <+> viaShow e
-        SigningProcessError e -> "Signing process error:" <+> viaShow e
-        ChainIndexError e -> "Chain index error:" <+> viaShow e
-        WalletError e -> "Wallet error:" <+> pretty e
-        ContractCommandError i t -> "Contract command error:" <+> pretty i <+> pretty t
-        InvalidUUIDError t -> "Invalid UUID:" <+> pretty t
-        OtherError t -> "Other error:" <+> pretty t
+  pretty = \case
+    FileNotFound fp -> "File not found:" <+> pretty fp
+    ContractNotFound fp -> "Contract not found:" <+> pretty fp
+    ContractInstanceNotFound i -> "Contract instance not found:" <+> pretty i
+    SCBContractError e -> "Contract error:" <+> pretty e
+    WalletClientError e -> "Wallet client error:" <+> viaShow e
+    NodeClientError e -> "Node client error:" <+> viaShow e
+    SigningProcessError e -> "Signing process error:" <+> viaShow e
+    ChainIndexError e -> "Chain index error:" <+> viaShow e
+    WalletError e -> "Wallet error:" <+> pretty e
+    ContractCommandError i t -> "Contract command error:" <+> pretty i <+> pretty t
+    InvalidUUIDError t -> "Invalid UUID:" <+> pretty t
+    OtherError t -> "Other error:" <+> pretty t
 
-data DbConfig =
-    DbConfig
-        { dbConfigFile     :: Text
-        -- ^ The path to the sqlite database file. May be absolute or relative.
-        , dbConfigPoolSize :: Int
-        -- ^ Max number of concurrent sqlite database connections.
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+data DbConfig = DbConfig
+  { -- | The path to the sqlite database file. May be absolute or relative.
+    dbConfigFile :: Text,
+    -- | Max number of concurrent sqlite database connections.
+    dbConfigPoolSize :: Int
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-data Config =
-    Config
-        { dbConfig                :: DbConfig
-        , walletServerConfig      :: WalletServer.Config
-        , nodeServerConfig        :: NodeServer.MockServerConfig
-        , scbWebserverConfig      :: WebserverConfig
-        , chainIndexConfig        :: ChainIndex.ChainIndexConfig
-        , signingProcessConfig    :: SigningProcess.SigningProcessConfig
-        , monitoringConfig        :: Maybe MonitoringConfig
-        , requestProcessingConfig :: RequestProcessingConfig
-        }
-    deriving (Show, Eq, Generic, FromJSON)
+data Config = Config
+  { dbConfig :: DbConfig,
+    walletServerConfig :: WalletServer.Config,
+    nodeServerConfig :: NodeServer.MockServerConfig,
+    scbWebserverConfig :: WebserverConfig,
+    chainIndexConfig :: ChainIndex.ChainIndexConfig,
+    signingProcessConfig :: SigningProcess.SigningProcessConfig,
+    monitoringConfig :: Maybe MonitoringConfig,
+    requestProcessingConfig :: RequestProcessingConfig
+  }
+  deriving (Show, Eq, Generic, FromJSON)
 
-newtype RequestProcessingConfig =
-    RequestProcessingConfig
-        { requestProcessingInterval :: Second -- ^ How many seconds to wait between calls to 'Plutus.SCB.Core.ContractInstance.processAllContractOutboxes'
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (FromJSON)
+newtype RequestProcessingConfig = RequestProcessingConfig
+  { -- | How many seconds to wait between calls to 'Plutus.SCB.Core.ContractInstance.processAllContractOutboxes'
+    requestProcessingInterval :: Second
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (FromJSON)
 
-newtype MonitoringConfig =
-    MonitoringConfig
-        { monitoringPort :: Int
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (FromJSON)
+newtype MonitoringConfig = MonitoringConfig
+  { monitoringPort :: Int
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (FromJSON)
 
-data WebserverConfig =
-    WebserverConfig
-        { baseUrl   :: BaseUrl
-        , staticDir :: FilePath
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (FromJSON, ToJSON)
+data WebserverConfig = WebserverConfig
+  { baseUrl :: BaseUrl,
+    staticDir :: FilePath
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (FromJSON, ToJSON)
 
 data Source
-    = ContractEventSource
-    | WalletEventSource
-    | UserEventSource
-    | NodeEventSource
-    deriving (Show, Eq)
+  = ContractEventSource
+  | WalletEventSource
+  | UserEventSource
+  | NodeEventSource
+  deriving (Show, Eq)
 
 toUUID :: Source -> UUID
 toUUID ContractEventSource = UUID.fromWords 0 0 0 1
-toUUID WalletEventSource   = UUID.fromWords 0 0 0 2
-toUUID UserEventSource     = UUID.fromWords 0 0 0 3
-toUUID NodeEventSource     = UUID.fromWords 0 0 0 4
+toUUID WalletEventSource = UUID.fromWords 0 0 0 2
+toUUID UserEventSource = UUID.fromWords 0 0 0 3
+toUUID NodeEventSource = UUID.fromWords 0 0 0 4
 
-data ChainOverview =
-    ChainOverview
-        { chainOverviewBlockchain     :: Blockchain
-        , chainOverviewUnspentTxsById :: Map TxId Tx
-        , chainOverviewUtxoIndex      :: UtxoIndex
-        }
-    deriving (Show, Eq, Generic)
-    deriving anyclass (ToJSON, FromJSON)
+data ChainOverview = ChainOverview
+  { chainOverviewBlockchain :: Blockchain,
+    chainOverviewUnspentTxsById :: Map TxId Tx,
+    chainOverviewUtxoIndex :: UtxoIndex
+  }
+  deriving (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 mkChainOverview :: Blockchain -> ChainOverview
 mkChainOverview = foldl reducer emptyChainOverview
   where
     reducer :: ChainOverview -> Block -> ChainOverview
-    reducer ChainOverview { chainOverviewBlockchain = oldBlockchain
-                          , chainOverviewUnspentTxsById = oldTxById
-                          , chainOverviewUtxoIndex = oldUtxoIndex
-                          } txs =
+    reducer
+      ChainOverview
+        { chainOverviewBlockchain = oldBlockchain,
+          chainOverviewUnspentTxsById = oldTxById,
+          chainOverviewUtxoIndex = oldUtxoIndex
+        }
+      txs =
         let unprunedTxById =
-                foldl (\m tx -> Map.insert (txId tx) tx m) oldTxById txs
+              foldl (\m tx -> Map.insert (txId tx) tx m) oldTxById txs
             newTxById = id unprunedTxById -- TODO Prune spent keys.
             newUtxoIndex = UtxoIndex.insertBlock txs oldUtxoIndex
          in ChainOverview
-                { chainOverviewBlockchain = txs : oldBlockchain
-                , chainOverviewUnspentTxsById = newTxById
-                , chainOverviewUtxoIndex = newUtxoIndex
-                }
+              { chainOverviewBlockchain = txs : oldBlockchain,
+                chainOverviewUnspentTxsById = newTxById,
+                chainOverviewUtxoIndex = newUtxoIndex
+              }
     emptyChainOverview =
-        ChainOverview
-            { chainOverviewBlockchain = []
-            , chainOverviewUnspentTxsById = Map.empty
-            , chainOverviewUtxoIndex = UtxoIndex Map.empty
-            }
+      ChainOverview
+        { chainOverviewBlockchain = [],
+          chainOverviewUnspentTxsById = Map.empty,
+          chainOverviewUtxoIndex = UtxoIndex Map.empty
+        }
 
 makePrisms ''SCBError

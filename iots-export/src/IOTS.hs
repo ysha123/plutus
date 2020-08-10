@@ -1,75 +1,110 @@
-{-# LANGUAGE AllowAmbiguousTypes  #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
-{-# LANGUAGE OverloadedStrings    #-}
-{-# LANGUAGE PolyKinds            #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module IOTS
-  ( export
-  , IotsExportable
-  , IotsType(iotsDefinition)
-  , IotsBuilder(..)
-  , HList(HNil, HCons)
-  , Tagged(Tagged)
-  ) where
+  ( export,
+    IotsExportable,
+    IotsType (iotsDefinition),
+    IotsBuilder (..),
+    HList (HNil, HCons),
+    Tagged (Tagged),
+  )
+where
 
-import           Control.Monad.State          (State, evalState, foldM, gets, modify)
-import           Data.Foldable                (fold, toList)
-import           Data.Kind                    (Type)
-import           Data.Map                     (Map)
-import           Data.Proxy                   (Proxy (Proxy))
-import           Data.Sequence                (Seq, (|>))
-import           Data.Set                     (Set)
-import qualified Data.Set                     as Set
-import           Data.Text                    (Text)
-import qualified Data.Text                    as Text
-import           Data.Tree                    (Forest, Tree (Node), rootLabel)
-import           GHC.Generics                 ((:*:) ((:*:)), (:+:), C1, Constructor, D1, Datatype, Generic, M1 (M1),
-                                               Rec0, Rep, S1, Selector, U1, conIsRecord, conName, selName)
-import qualified GHC.Generics                 as Generics
-import           GHC.TypeLits                 (KnownSymbol, symbolVal)
-import           IOTS.Leijen                  (jsArray, jsObject, jsParams, render, stringDoc, symbol, upperFirst)
-import           IOTS.Tree                    (depthfirstM)
-import           Text.PrettyPrint.Leijen.Text (Doc, angles, braces, comma, dquotes, hsep, linebreak, parens, punctuate,
-                                               semi, squotes, textStrict, vsep, (<+>))
-import           Type.Reflection              (SomeTypeRep (SomeTypeRep), Typeable, someTypeRep)
-import qualified Type.Reflection              as R
+import Control.Monad.State (State, evalState, foldM, gets, modify)
+import Data.Foldable (fold, toList)
+import Data.Kind (Type)
+import Data.Map (Map)
+import Data.Proxy (Proxy (Proxy))
+import Data.Sequence (Seq, (|>))
+import Data.Set (Set)
+import qualified Data.Set as Set
+import Data.Text (Text)
+import qualified Data.Text as Text
+import Data.Tree (Forest, Tree (Node), rootLabel)
+import GHC.Generics
+  ( C1,
+    Constructor,
+    D1,
+    Datatype,
+    Generic,
+    M1 (M1),
+    Rec0,
+    Rep,
+    S1,
+    Selector,
+    U1,
+    conIsRecord,
+    conName,
+    selName,
+    (:*:) ((:*:)),
+    (:+:),
+  )
+import qualified GHC.Generics as Generics
+import GHC.TypeLits (KnownSymbol, symbolVal)
+import IOTS.Leijen (jsArray, jsObject, jsParams, render, stringDoc, symbol, upperFirst)
+import IOTS.Tree (depthfirstM)
+import Text.PrettyPrint.Leijen.Text
+  ( Doc,
+    angles,
+    braces,
+    comma,
+    dquotes,
+    hsep,
+    linebreak,
+    parens,
+    punctuate,
+    semi,
+    squotes,
+    textStrict,
+    vsep,
+    (<+>),
+  )
+import Type.Reflection (SomeTypeRep (SomeTypeRep), Typeable, someTypeRep)
+import qualified Type.Reflection as R
 
-{-# ANN module ("HLint: ignore Avoid restricted function" :: Text)
-        #-}
+{-# ANN
+  module
+  ("HLint: ignore Avoid restricted function" :: Text)
+  #-}
 
 data IotsTypeRep a where
   Atom :: IotsType a => IotsTypeRep a
-  Group
-    :: IotsTypeRep a -> IotsTypeRep (HList bs) -> IotsTypeRep (HList (a ': bs))
-  Fun
-    :: IotsTypeRep a
-    -> IotsTypeRep b
-    -> IotsTypeRep (a -> b)
+  Group ::
+    IotsTypeRep a ->
+    IotsTypeRep (HList bs) ->
+    IotsTypeRep (HList (a ': bs))
+  Fun ::
+    IotsTypeRep a ->
+    IotsTypeRep b ->
+    IotsTypeRep (a -> b)
   NamedFun :: Typeable f => Text -> IotsTypeRep (a -> b) -> IotsTypeRep f
 
 ------------------------------------------------------------
+
 -- | Accumulates the data we need to write out the final JavaScript string.
-data IotsBuilder =
-  IotsBuilder
-    { iotsRep    :: SomeTypeRep
-        -- ^ The type this record describes.
-    , iotsRef    :: Doc
-        -- ^ How we refer to this type. For IOTS builtins this is
-        -- probably 't.something'. For our definitions it will the the
-        -- type name (eg. 'User').
-    , iotsOutput :: Bool
-        -- ^ Should we write this type out in the final export?
-    }
+data IotsBuilder = IotsBuilder
+  { -- | The type this record describes.
+    iotsRep :: SomeTypeRep,
+    -- | How we refer to this type. For IOTS builtins this is
+    -- probably 't.something'. For our definitions it will the the
+    -- type name (eg. 'User').
+    iotsRef :: Doc,
+    -- | Should we write this type out in the final export?
+    iotsOutput :: Bool
+  }
   deriving (Show)
 
 repName :: SomeTypeRep -> Doc
@@ -83,13 +118,14 @@ repName = stringDoc . fold . go
         (tyCon, params) = R.splitApps someRep
         headName =
           case R.tyConName tyCon of
-            "[]"  -> "List"
+            "[]" -> "List"
             other -> other
 
 toRef :: Tree IotsBuilder -> Doc
 toRef = iotsRef . rootLabel
 
 ------------------------------------------------------------
+
 -- | Render out a type, function or 'HList' of functions as an IOTS-compatible definition file.
 --
 -- All the subtypes needed for compilation will also be exported, as long as they are all 'IotsExportable'.
@@ -109,20 +145,22 @@ toRef = iotsRef . rootLabel
 -- 'maybeFunction'. Note that you do not need to export 'User'
 -- explicitly.
 export ::
-     forall a. IotsExportable a
-  => a
-  -> Text
+  forall a.
+  IotsExportable a =>
+  a ->
+  Text
 export _ =
   render . vsep . punctuate linebreak . toList $ definitions
   where
     definitions :: Seq Doc
     definitions =
-      flip evalState mempty .
-      foldM (depthfirstM appendUnseenDefinitions) mempty .
-      flip evalState mempty . gatherDefinitions $
-      iotsTypeRep @a
+      flip evalState mempty
+        . foldM (depthfirstM appendUnseenDefinitions) mempty
+        . flip evalState mempty
+        . gatherDefinitions
+        $ iotsTypeRep @a
     appendUnseenDefinitions ::
-         Seq Doc -> IotsBuilder -> State (Set SomeTypeRep) (Seq Doc)
+      Seq Doc -> IotsBuilder -> State (Set SomeTypeRep) (Seq Doc)
     appendUnseenDefinitions acc IotsBuilder {..} = do
       seen <- gets (Set.member iotsRep)
       modify (Set.insert iotsRep)
@@ -141,45 +179,48 @@ gatherDefinitions (Group x xs) =
 gatherDefinitions (Fun from to) =
   mappend <$> gatherDefinitions from <*> gatherDefinitions to
 gatherDefinitions (NamedFun functionName fun) = do
-    children <- gatherDefinitions fun
-    let inputArguments = init children
-        outputArgument = last children
-        labelledParameter :: Text -> Tree IotsBuilder -> Doc
-        labelledParameter argName def =
-            textStrict argName <> ":" <+> toRef def
-        functionBinding = textStrict (upperFirst functionName)
-        toBinding argName = functionBinding <> textStrict argName
-        argsBinding = toBinding "Args"
-        returnBinding = toBinding "Return"
-        typeSignature = "t.type" <> parens (jsObject (withParameterLabels labelledParameter inputArguments))
+  children <- gatherDefinitions fun
+  let inputArguments = init children
+      outputArgument = last children
+      labelledParameter :: Text -> Tree IotsBuilder -> Doc
+      labelledParameter argName def =
+        textStrict argName <> ":" <+> toRef def
+      functionBinding = textStrict (upperFirst functionName)
+      toBinding argName = functionBinding <> textStrict argName
+      argsBinding = toBinding "Args"
+      returnBinding = toBinding "Return"
+      typeSignature = "t.type" <> parens (jsObject (withParameterLabels labelledParameter inputArguments))
 
-        iotsRep = someTypeRep (Proxy @a)
-        iotsOutput = True
-        iotsRef =
-            vsep . punctuate linebreak $
-            [ "const" <+> argsBinding <+> "=" <+> typeSignature <> semi
-            , "const" <+> returnBinding <+> "=" <+> toRef outputArgument <> semi
-            , "export" <+> "const" <+>
-              functionBinding <+>
-              "=" <+>
-              "createEndpoint" <>
-              angles
-                  (hsep
-                       (punctuate
-                            comma
-                            [ "typeof" <+> argsBinding
-                            , "typeof" <+> returnBinding
-                            , "t.NullC"
-                            ])) <>
-              jsParams [squotes functionBinding, argsBinding, returnBinding] <>
-              semi
-            ]
-    pure [Node (IotsBuilder {..}) children]
+      iotsRep = someTypeRep (Proxy @a)
+      iotsOutput = True
+      iotsRef =
+        vsep . punctuate linebreak $
+          [ "const" <+> argsBinding <+> "=" <+> typeSignature <> semi,
+            "const" <+> returnBinding <+> "=" <+> toRef outputArgument <> semi,
+            "export" <+> "const"
+              <+> functionBinding
+              <+> "="
+              <+> "createEndpoint"
+              <> angles
+                ( hsep
+                    ( punctuate
+                        comma
+                        [ "typeof" <+> argsBinding,
+                          "typeof" <+> returnBinding,
+                          "t.NullC"
+                        ]
+                    )
+                )
+              <> jsParams [squotes functionBinding, argsBinding, returnBinding]
+              <> semi
+          ]
+  pure [Node (IotsBuilder {..}) children]
 
 withParameterLabels :: (Text -> Tree IotsBuilder -> Doc) -> Forest IotsBuilder -> [Doc]
 withParameterLabels f = zipWith f (Text.singleton <$> ['a' .. 'z'])
 
 ------------------------------------------------------------
+
 -- | A type-level list.
 -- This helps us create a list of different type signatures to export.
 data HList (ts :: [Type]) where
@@ -188,17 +229,19 @@ data HList (ts :: [Type]) where
   deriving (Typeable)
 
 ------------------------------------------------------------
+
 -- | Tag a given type with a phantom.
 --
 -- Useful in our case for attaching symbols to functions.
 --
 -- (We could take this from the <http://hackage.haskell.org/package/tagged tagged> package, but I really don't
 -- think it's worth it for the sake of one newtype.)
-newtype Tagged a b =
-  Tagged b
+newtype Tagged a b
+  = Tagged b
   deriving (Show, Eq, Ord)
 
 ------------------------------------------------------------
+
 -- | Something that we can export to an IOTS definition. In general this is:
 --
 --     * Any type that implements 'IotsType'.
@@ -213,20 +256,27 @@ instance {-# OVERLAPPABLE #-} IotsType a => IotsExportable a where
 instance IotsExportable (HList '[]) where
   iotsTypeRep = Atom
 
-instance (IotsExportable t, IotsExportable (HList ts)) =>
-         IotsExportable (HList (t ': ts)) where
+instance
+  (IotsExportable t, IotsExportable (HList ts)) =>
+  IotsExportable (HList (t ': ts))
+  where
   iotsTypeRep = Group iotsTypeRep iotsTypeRep
 
-instance (IotsExportable a, IotsExportable b) =>
-         IotsExportable ((->) a b) where
+instance
+  (IotsExportable a, IotsExportable b) =>
+  IotsExportable ((->) a b)
+  where
   iotsTypeRep = Fun iotsTypeRep iotsTypeRep
 
-instance (KnownSymbol s, IotsExportable (a -> b), Typeable (a -> b)) =>
-         IotsExportable (Tagged s (a -> b)) where
+instance
+  (KnownSymbol s, IotsExportable (a -> b), Typeable (a -> b)) =>
+  IotsExportable (Tagged s (a -> b))
+  where
   iotsTypeRep =
     NamedFun (Text.pack (symbolVal (Proxy @s))) (iotsTypeRep @(a -> b))
 
 ------------------------------------------------------------
+
 -- | Any type we can teach IOTS about. For most cases it will be sufficient to add:
 --
 --   > deriving (Generic, IotsType)
@@ -234,7 +284,8 @@ instance (KnownSymbol s, IotsExportable (a -> b), Typeable (a -> b)) =>
 -- ...to your definition.
 class IotsType a where
   iotsDefinition :: State Visited (Forest IotsBuilder)
-  default iotsDefinition :: (Typeable a, Generic a, GenericIotsType (Rep a)) =>
+  default iotsDefinition ::
+    (Typeable a, Generic a, GenericIotsType (Rep a)) =>
     State Visited (Forest IotsBuilder)
   iotsDefinition =
     genericTypeReps (someTypeRep (Proxy @a)) $ Generics.from (undefined :: a)
@@ -277,8 +328,10 @@ instance IotsType Bool where
 instance IotsType a => IotsType (Proxy a) where
   iotsDefinition = iotsDefinition @a
 
-instance (IotsType a, IotsType b, Typeable a, Typeable b) =>
-         IotsType (a, b) where
+instance
+  (IotsType a, IotsType b, Typeable a, Typeable b) =>
+  IotsType (a, b)
+  where
   iotsDefinition = do
     leftReps <- iotsDefinition @a
     rightReps <- iotsDefinition @b
@@ -288,8 +341,10 @@ instance (IotsType a, IotsType b, Typeable a, Typeable b) =>
         iotsRef = "t.tuple" <> parens (jsArray (toRef <$> children))
     pure [Node (IotsBuilder {..}) children]
 
-instance (IotsType k, IotsType v, Typeable k, Typeable v) =>
-         IotsType (Map k v) where
+instance
+  (IotsType k, IotsType v, Typeable k, Typeable v) =>
+  IotsType (Map k v)
+  where
   iotsDefinition = do
     keyReps <- iotsDefinition @k
     valueReps <- iotsDefinition @v
@@ -335,7 +390,7 @@ instance {-# OVERLAPPABLE #-} (IotsType a, Typeable a) => IotsType [a] where
         iotsRef = "t.array" <> jsParams (toRef <$> child)
     pure [Node (IotsBuilder {..}) child]
 
-instance  (IotsType a, Typeable a) => IotsType (Set a) where
+instance (IotsType a, Typeable a) => IotsType (Set a) where
   iotsDefinition = do
     child <- iotsDefinition @a
     let iotsRep = someTypeRep (Proxy @(Set a))
@@ -395,21 +450,21 @@ instance (GenericToBody p, Datatype f) => GenericToDef (D1 f p) where
         iotsOutput = True
         iotsRef =
           vsep
-            [ "//" <+> moduleName <> "." <> datatypeName
-            , "const" <+> ref <+> "=" <+> body <> ";"
+            [ "//" <+> moduleName <> "." <> datatypeName,
+              "const" <+> ref <+> "=" <+> body <> ";"
             ]
         body =
           case childDef of
             [x] -> x SoleConstructor
-            xs  -> "t.union" <> parens (jsArray (apply ManyConstructors <$> xs))
+            xs -> "t.union" <> parens (jsArray (apply ManyConstructors <$> xs))
         apply x f = f x
     pure $ Node (IotsBuilder {..}) childRefs
 
 class GenericToBody f where
   genericToBody ::
-       SomeTypeRep
-    -> f a
-    -> State Visited ([Cardinality -> Doc], [Tree IotsBuilder])
+    SomeTypeRep ->
+    f a ->
+    State Visited ([Cardinality -> Doc], [Tree IotsBuilder])
 
 instance (Constructor f, GenericToFields p) => GenericToBody (C1 f p) where
   genericToBody rep constructor@(M1 selectors) = do
@@ -417,22 +472,22 @@ instance (Constructor f, GenericToFields p) => GenericToBody (C1 f p) where
     let constructorName = stringDoc $ conName constructor
         def SoleConstructor =
           case (conIsRecord constructor, fieldBodies) of
-            (False, [])          -> "t.literal" <> parens (squotes constructorName)
+            (False, []) -> "t.literal" <> parens (squotes constructorName)
             (False, [fieldBody]) -> fieldBody
-            (False, _)           -> "t.tuple" <> parens (jsArray fieldBodies)
-            (True, _)            -> "t.type" <> parens (jsObject fieldBodies)
+            (False, _) -> "t.tuple" <> parens (jsArray fieldBodies)
+            (True, _) -> "t.type" <> parens (jsObject fieldBodies)
         def ManyConstructors =
           case (conIsRecord constructor, fieldBodies) of
             (False, []) -> def SoleConstructor
-            _           -> withNamedConstructor (def SoleConstructor)
+            _ -> withNamedConstructor (def SoleConstructor)
         withNamedConstructor doc =
           "t.type" <> parens (braces (dquotes constructorName <> ":" <+> doc))
     pure ([def], children)
 
 instance (GenericToBody f, GenericToBody g) => GenericToBody (f :+: g) where
   genericToBody rep _ =
-    mappend <$> genericToBody rep (undefined :: f a) <*>
-    genericToBody rep (undefined :: g a)
+    mappend <$> genericToBody rep (undefined :: f a)
+      <*> genericToBody rep (undefined :: g a)
 
 class GenericToFields f where
   genericToFields :: SomeTypeRep -> f a -> State Visited ([Doc], [Tree IotsBuilder])
@@ -440,8 +495,10 @@ class GenericToFields f where
 instance GenericToFields U1 where
   genericToFields _ _ = pure mempty
 
-instance (Selector s, IotsType p, Typeable p) =>
-         GenericToFields (S1 s (Rec0 p)) where
+instance
+  (Selector s, IotsType p, Typeable p) =>
+  GenericToFields (S1 s (Rec0 p))
+  where
   genericToFields _ selector = do
     let childRep = someTypeRep (Proxy @p)
     seen <- gets (Set.member childRep)
@@ -450,14 +507,16 @@ instance (Selector s, IotsType p, Typeable p) =>
     let fieldRef = foldMap toRef child
         def =
           case selName selector of
-            ""   -> fieldRef
+            "" -> fieldRef
             name -> stringDoc name <> ":" <+> fieldRef
     pure $
       if seen
         then ([def], [])
         else ([def], child)
 
-instance (GenericToFields f, GenericToFields g) =>
-         GenericToFields (f :*: g) where
+instance
+  (GenericToFields f, GenericToFields g) =>
+  GenericToFields (f :*: g)
+  where
   genericToFields rep ~(f :*: g) =
     (<>) <$> genericToFields rep f <*> genericToFields rep g

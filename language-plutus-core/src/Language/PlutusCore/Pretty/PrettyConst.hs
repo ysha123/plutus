@@ -1,17 +1,17 @@
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 module Language.PlutusCore.Pretty.PrettyConst where
 
-import qualified Data.ByteString.Lazy               as BSL
-import           Data.Foldable                      (fold)
-import qualified Data.Text                          as T
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Internal (Doc (Text))
-import           Data.Word                          (Word8)
-import           Numeric                            (showHex)
+import qualified Data.ByteString.Lazy as BSL
+import Data.Foldable (fold)
+import qualified Data.Text as T
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Internal (Doc (Text))
+import Data.Word (Word8)
+import Numeric (showHex)
 
 {- Note [Prettyprinting built-in constants] When we're printing PLC
    code, the prettyprinter has to render built-in constants.
@@ -35,24 +35,29 @@ import           Numeric                            (showHex)
 -}
 
 class PrettyConst a where
-    prettyConst :: a -> Doc ann
-    default prettyConst :: Show a => a -> Doc ann
-    prettyConst = pretty . show
+  prettyConst :: a -> Doc ann
+  default prettyConst :: Show a => a -> Doc ann
+  prettyConst = pretty . show
 
 -- Special instance for bytestrings
 asBytes :: Word8 -> Doc ann
 asBytes x = Text 2 $ T.pack $ addLeadingZero $ showHex x mempty
-    where addLeadingZero :: String -> String
-          addLeadingZero
-              | x < 16    = ('0' :)
-              | otherwise = id
+  where
+    addLeadingZero :: String -> String
+    addLeadingZero
+      | x < 16 = ('0' :)
+      | otherwise = id
 
 instance PrettyConst BSL.ByteString where
-    prettyConst b = "#" <> fold (asBytes <$> BSL.unpack b)
+  prettyConst b = "#" <> fold (asBytes <$> BSL.unpack b)
 
 -- The basic built-in types use `show` via the default instance
 instance PrettyConst ()
+
 instance PrettyConst Bool
+
 instance PrettyConst Char
+
 instance PrettyConst Integer
+
 instance PrettyConst String

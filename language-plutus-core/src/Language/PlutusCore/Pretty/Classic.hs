@@ -1,25 +1,24 @@
--- | A "classic" (i.e. as seen in the specification) way to pretty-print PLC entities.
-
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
+-- | A "classic" (i.e. as seen in the specification) way to pretty-print PLC entities.
 module Language.PlutusCore.Pretty.Classic
-    ( PrettyConfigClassic (..)
-    , PrettyClassicBy
-    , PrettyClassic
-    , prettyClassicDef
-    , prettyClassicDebug
-    ) where
+  ( PrettyConfigClassic (..),
+    PrettyClassicBy,
+    PrettyClassic,
+    prettyClassicDef,
+    prettyClassicDebug,
+  )
+where
 
-import           PlutusPrelude
-
-import           Language.PlutusCore.Pretty.ConfigName
+import Language.PlutusCore.Pretty.ConfigName
+import PlutusPrelude
 
 -- | Configuration for the classic pretty-printing.
 newtype PrettyConfigClassic configName = PrettyConfigClassic
-    { _pccConfigName :: configName
-    }
+  { _pccConfigName :: configName
+  }
 
 type instance HasPrettyDefaults (PrettyConfigClassic _) = 'True
 
@@ -29,7 +28,7 @@ type PrettyClassicBy configName = PrettyBy (PrettyConfigClassic configName)
 type PrettyClassic = PrettyClassicBy PrettyConfigName
 
 instance configName ~ PrettyConfigName => HasPrettyConfigName (PrettyConfigClassic configName) where
-    toPrettyConfigName = _pccConfigName
+  toPrettyConfigName = _pccConfigName
 
 -- | Pretty-print a value in the default mode using the classic view.
 prettyClassicDef :: PrettyClassic a => a -> Doc ann

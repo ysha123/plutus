@@ -1,5 +1,6 @@
-module Wallet (
-    module API
-    ) where
+module Wallet
+  ( module API,
+  )
+where
 
-import           Wallet.API as API
+import Wallet.API as API

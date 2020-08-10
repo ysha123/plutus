@@ -1,23 +1,49 @@
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeOperators              #-}
-{-# OPTIONS_GHC -fno-warn-orphans       #-}
+{-# LANGUAGE TypeOperators #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Language.Marlowe.Pretty where
 
-import qualified Data.ByteString.Lazy    as BSL
-import           Data.Text               (Text)
-import qualified Data.Text               as Text
-import           GHC.Generics            ((:*:) ((:*:)), (:+:) (L1, R1), C, Constructor, D, Generic, K1 (K1), M1 (M1),
-                                          Rep, S, U1, conName, from)
+import qualified Data.ByteString.Lazy as BSL
+import Data.Text (Text)
+import qualified Data.Text as Text
+import GHC.Generics
+  ( C,
+    Constructor,
+    D,
+    Generic,
+    K1 (K1),
+    M1 (M1),
+    Rep,
+    S,
+    U1,
+    conName,
+    from,
+    (:*:) ((:*:)),
+    (:+:) (L1, R1),
+  )
 import qualified Language.PlutusTx.Ratio as P
-import           Ledger                  (PubKeyHash (..), Slot (..))
-import           Ledger.Ada              (Ada, getLovelace)
-import           Ledger.Value
-import           Text.PrettyPrint.Leijen (Doc, comma, encloseSep, hang, lbracket, line, lparen, parens, rbracket,
-                                          rparen, space, text)
+import Ledger (PubKeyHash (..), Slot (..))
+import Ledger.Ada (Ada, getLovelace)
+import Ledger.Value
+import Text.PrettyPrint.Leijen
+  ( Doc,
+    comma,
+    encloseSep,
+    hang,
+    lbracket,
+    line,
+    lparen,
+    parens,
+    rbracket,
+    rparen,
+    space,
+    text,
+  )
 
 -- | This function will pretty print an a but will not wrap the whole
 -- expression in parentheses or add an initial newline, where as for
@@ -45,38 +71,38 @@ instance Pretty1 U1 where
   isNullary _ = True
 
 instance (Pretty1 f) => Pretty1 (M1 D c f) where
-    pretty1 topLevel (M1 a) = pretty1 topLevel a
-    isNullary (M1 a) = isNullary a
+  pretty1 topLevel (M1 a) = pretty1 topLevel a
+  isNullary (M1 a) = isNullary a
 
 instance (Constructor c, Pretty1 f) => Pretty1 (M1 C c f) where
-    pretty1 topLevel c@(M1 a) = line' . parens' $ hang 2 $ text (conName c) <> pretty1 False a
-        where
-            parens' f = if topLevel || isNullary a then f else parens f
-            line' f = if topLevel || isNullary a then f else line <> f
-    isNullary (M1 a) = isNullary a
+  pretty1 topLevel c@(M1 a) = line' . parens' $ hang 2 $ text (conName c) <> pretty1 False a
+    where
+      parens' f = if topLevel || isNullary a then f else parens f
+      line' f = if topLevel || isNullary a then f else line <> f
+  isNullary (M1 a) = isNullary a
 
 instance (Pretty1 f) => Pretty1 (M1 S c f) where
-    pretty1 _ (M1 a) = space' (pretty1 False a)
-        where
-          -- FIXME: unfortunately I can't work out how to get rid of trailing spaces without showing
-          space' f = case show f of
-            ('\n':_) -> f
-            _        -> space <> f
-    isNullary (M1 a) = isNullary a
+  pretty1 _ (M1 a) = space' (pretty1 False a)
+    where
+      -- FIXME: unfortunately I can't work out how to get rid of trailing spaces without showing
+      space' f = case show f of
+        ('\n' : _) -> f
+        _ -> space <> f
+  isNullary (M1 a) = isNullary a
 
 instance Pretty f => Pretty1 (K1 t f) where
-    pretty1 _ (K1 a) = prettyFragment a
-    isNullary _ = False
+  pretty1 _ (K1 a) = prettyFragment a
+  isNullary _ = False
 
 instance (Pretty1 a, Pretty1 b) => Pretty1 (a :+: b) where
-    pretty1 topLevel (L1 a) = pretty1 topLevel a
-    pretty1 topLevel (R1 a) = pretty1 topLevel a
-    isNullary (R1 a) = isNullary a
-    isNullary (L1 a) = isNullary a
+  pretty1 topLevel (L1 a) = pretty1 topLevel a
+  pretty1 topLevel (R1 a) = pretty1 topLevel a
+  isNullary (R1 a) = isNullary a
+  isNullary (L1 a) = isNullary a
 
 instance (Pretty1 a, Pretty1 b) => Pretty1 (a :*: b) where
-    pretty1 topLevel (f :*: g) = pretty1 topLevel f <> pretty1 topLevel g
-    isNullary _ = False
+  pretty1 topLevel (f :*: g) = pretty1 topLevel f <> pretty1 topLevel g
+  isNullary _ = False
 
 instance Pretty String where
   prettyFragment = text
@@ -96,7 +122,6 @@ instance (Pretty a, Pretty b) => Pretty (a, b) where
 instance (Pretty a) => Pretty [a] where
   prettyFragment a = encloseSep lbracket rbracket comma (map prettyFragment a)
 
-
 {-
     Currently, Marlowe Playground saves a Haskell contract to a file,
     and runs Haskell interpreter. A script usually pretty prints a contract
@@ -106,29 +131,32 @@ instance (Pretty a) => Pretty [a] where
     Thus, we require @PureScript.parse . Haskell.pretty == id
  -}
 
-instance  (Show a) => Show (P.Ratio a) where
-    -- Adapted from Data.Ratio in the base library
-    showsPrec p r = showParen (p > ratioPrec) $
-                    showsPrec ratioPrec1 (P.numerator r) .
-                    showString " % " .
-                    showsPrec ratioPrec1 (P.denominator r)
-       where ratioPrec = 7  -- This refers to the operator precedence level of %
-             ratioPrec1 = ratioPrec + 1
+instance (Show a) => Show (P.Ratio a) where
+  -- Adapted from Data.Ratio in the base library
+  showsPrec p r =
+    showParen (p > ratioPrec) $
+      showsPrec ratioPrec1 (P.numerator r)
+        . showString " % "
+        . showsPrec ratioPrec1 (P.denominator r)
+    where
+      ratioPrec = 7 -- This refers to the operator precedence level of %
+      ratioPrec1 = ratioPrec + 1
 
 instance (Show a) => Pretty (P.Ratio a) where
-    prettyFragment = text . show
+  prettyFragment = text . show
 
 instance Pretty Slot where
-    prettyFragment (Slot n) = prettyFragment n
+  prettyFragment (Slot n) = prettyFragment n
 
 instance Pretty PubKeyHash where
-    prettyFragment (PubKeyHash bs) = prettyFragment bs
+  prettyFragment (PubKeyHash bs) = prettyFragment bs
 
 instance Pretty BSL.ByteString where
-    prettyFragment = text . show . BSL.toStrict
+  prettyFragment = text . show . BSL.toStrict
 
 instance Pretty Ada where
-    prettyFragment x = prettyFragment (getLovelace x)
+  prettyFragment x = prettyFragment (getLovelace x)
 
 deriving instance Pretty CurrencySymbol
+
 deriving instance Pretty TokenName

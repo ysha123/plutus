@@ -1,92 +1,106 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeApplications #-}
+
 {-# OPTIONS -fplugin Language.PlutusTx.Plugin -fplugin-opt Language.PlutusTx.Plugin:defer-errors -fplugin-opt Language.PlutusTx.Plugin:no-context #-}
 
 module Plugin.Functions.Spec where
 
-import           Common
-import           PlcTestUtils
-import           Plugin.Lib
-
-import           Plugin.Data.Spec
-
-import qualified Language.PlutusTx.Builtins   as Builtins
-import           Language.PlutusTx.Code
-import           Language.PlutusTx.Plugin
-
+import Common
+import Data.Proxy
 import qualified Language.PlutusCore.Universe as PLC
-
-import           Data.Proxy
+import qualified Language.PlutusTx.Builtins as Builtins
+import Language.PlutusTx.Code
+import Language.PlutusTx.Plugin
+import PlcTestUtils
+import Plugin.Data.Spec
+import Plugin.Lib
 
 -- this module does lots of weird stuff deliberately
-{-# ANN module ("HLint: ignore"::String) #-}
+{-# ANN module ("HLint: ignore" :: String) #-}
 
 functions :: TestNested
-functions = testNested "Functions" [
-    recursiveFunctions
-    , unfoldings
-  ]
+functions =
+  testNested
+    "Functions"
+    [ recursiveFunctions,
+      unfoldings
+    ]
 
 recursiveFunctions :: TestNested
-recursiveFunctions = testNested "recursive" [
-    goldenPir "fib" fib
-    , goldenEval "fib4" [ getProgram fib, getProgram $ plc (Proxy @"4") (4::Integer) ]
-    , goldenPir "sum" sumDirect
-    , goldenEval "sumList" [ getProgram sumDirect, getProgram listConstruct3 ]
-    , goldenPir "even" evenMutual
-    , goldenEval "even3" [ getProgram evenMutual, getProgram $ plc (Proxy @"3") (3::Integer) ]
-    , goldenEval "even4" [ getProgram evenMutual, getProgram $ plc (Proxy @"4") (4::Integer) ]
-  ]
+recursiveFunctions =
+  testNested
+    "recursive"
+    [ goldenPir "fib" fib,
+      goldenEval "fib4" [getProgram fib, getProgram $ plc (Proxy @"4") (4 :: Integer)],
+      goldenPir "sum" sumDirect,
+      goldenEval "sumList" [getProgram sumDirect, getProgram listConstruct3],
+      goldenPir "even" evenMutual,
+      goldenEval "even3" [getProgram evenMutual, getProgram $ plc (Proxy @"3") (3 :: Integer)],
+      goldenEval "even4" [getProgram evenMutual, getProgram $ plc (Proxy @"4") (4 :: Integer)]
+    ]
 
 fib :: CompiledCode PLC.DefaultUni (Integer -> Integer)
 -- not using case to avoid literal cases
-fib = plc (Proxy @"fib") (
-    let fib :: Integer -> Integer
-        fib n = if Builtins.equalsInteger n 0
-            then 0
-            else if Builtins.equalsInteger n 1
-            then 1
-            else Builtins.addInteger (fib(Builtins.subtractInteger n 1)) (fib(Builtins.subtractInteger n 2))
-    in fib)
+fib =
+  plc
+    (Proxy @"fib")
+    ( let fib :: Integer -> Integer
+          fib n =
+            if Builtins.equalsInteger n 0
+              then 0
+              else
+                if Builtins.equalsInteger n 1
+                  then 1
+                  else Builtins.addInteger (fib (Builtins.subtractInteger n 1)) (fib (Builtins.subtractInteger n 2))
+       in fib
+    )
 
 sumDirect :: CompiledCode PLC.DefaultUni ([Integer] -> Integer)
-sumDirect = plc (Proxy @"sumDirect") (
-    let sum :: [Integer] -> Integer
-        sum []     = 0
-        sum (x:xs) = Builtins.addInteger x (sum xs)
-    in sum)
+sumDirect =
+  plc
+    (Proxy @"sumDirect")
+    ( let sum :: [Integer] -> Integer
+          sum [] = 0
+          sum (x : xs) = Builtins.addInteger x (sum xs)
+       in sum
+    )
 
 evenMutual :: CompiledCode PLC.DefaultUni (Integer -> Bool)
-evenMutual = plc (Proxy @"evenMutual") (
-    let even :: Integer -> Bool
-        even n = if Builtins.equalsInteger n 0 then True else odd (Builtins.subtractInteger n 1)
-        odd :: Integer -> Bool
-        odd n = if Builtins.equalsInteger n 0 then False else even (Builtins.subtractInteger n 1)
-    in even)
+evenMutual =
+  plc
+    (Proxy @"evenMutual")
+    ( let even :: Integer -> Bool
+          even n = if Builtins.equalsInteger n 0 then True else odd (Builtins.subtractInteger n 1)
+          odd :: Integer -> Bool
+          odd n = if Builtins.equalsInteger n 0 then False else even (Builtins.subtractInteger n 1)
+       in even
+    )
 
 unfoldings :: TestNested
-unfoldings = testNested "unfoldings" [
-    goldenPir "nandDirect" nandPlcDirect
-    , goldenPir "andDirect" andPlcDirect
-    , goldenPir "andExternal" andPlcExternal
-    , goldenPir "allDirect" allPlcDirect
-    , goldenPir "mutualRecursionUnfoldings" mutualRecursionUnfoldings
-    , goldenPir "recordSelector" recordSelector
-    , goldenPir "recordSelectorExternal" recordSelectorExternal
-    -- We used to have problems with polymorphic let bindings where the generalization was
-    -- on the outside of the let, which hit the value restriction. Now we hit the simplifier
-    -- it seems to sometimes float these in, but we should keep an eye on these.
-    , goldenPir "polyMap" polyMap
-    , goldenPir "applicationFunction" applicationFunction
-  ]
+unfoldings =
+  testNested
+    "unfoldings"
+    [ goldenPir "nandDirect" nandPlcDirect,
+      goldenPir "andDirect" andPlcDirect,
+      goldenPir "andExternal" andPlcExternal,
+      goldenPir "allDirect" allPlcDirect,
+      goldenPir "mutualRecursionUnfoldings" mutualRecursionUnfoldings,
+      goldenPir "recordSelector" recordSelector,
+      goldenPir "recordSelectorExternal" recordSelectorExternal,
+      -- We used to have problems with polymorphic let bindings where the generalization was
+      -- on the outside of the let, which hit the value restriction. Now we hit the simplifier
+      -- it seems to sometimes float these in, but we should keep an eye on these.
+      goldenPir "polyMap" polyMap,
+      goldenPir "applicationFunction" applicationFunction
+    ]
 
 andDirect :: Bool -> Bool -> Bool
-andDirect = \(a :: Bool) -> \(b::Bool) -> nandDirect (nandDirect a b) (nandDirect a b)
+andDirect = \(a :: Bool) -> \(b :: Bool) -> nandDirect (nandDirect a b) (nandDirect a b)
 
 nandDirect :: Bool -> Bool -> Bool
-nandDirect = \(a :: Bool) -> \(b::Bool) -> if a then False else if b then False else True
+nandDirect = \(a :: Bool) -> \(b :: Bool) -> if a then False else if b then False else True
 
 nandPlcDirect :: CompiledCode PLC.DefaultUni Bool
 nandPlcDirect = plc (Proxy @"nandPlcDirect") (nandDirect True False)
@@ -100,11 +114,11 @@ andPlcExternal = plc (Proxy @"andPlcExternal") (andExternal True False)
 -- self-recursion
 allDirect :: (a -> Bool) -> [a] -> Bool
 allDirect p l = case l of
-    []  -> True
-    h:t -> andDirect (p h) (allDirect p t)
+  [] -> True
+  h : t -> andDirect (p h) (allDirect p t)
 
 allPlcDirect :: CompiledCode PLC.DefaultUni Bool
-allPlcDirect = plc (Proxy @"andPlcDirect") (allDirect (\(x::Integer) -> Builtins.greaterThanInteger x 5) [7, 6])
+allPlcDirect = plc (Proxy @"andPlcDirect") (allDirect (\(x :: Integer) -> Builtins.greaterThanInteger x 5) [7, 6])
 
 mutualRecursionUnfoldings :: CompiledCode PLC.DefaultUni Bool
 mutualRecursionUnfoldings = plc (Proxy @"mutualRecursionUnfoldings") (evenDirect 4)
@@ -117,8 +131,8 @@ recordSelectorExternal = plc (Proxy @"recordSelectorExternal") (\(x :: MyExterna
 
 mapDirect :: (a -> b) -> [a] -> [b]
 mapDirect f l = case l of
-    []   -> []
-    x:xs -> f x : mapDirect f xs
+  [] -> []
+  x : xs -> f x : mapDirect f xs
 
 polyMap :: CompiledCode PLC.DefaultUni ([Integer])
 polyMap = plc (Proxy @"polyMap") (mapDirect (Builtins.addInteger 1) [0, 1])

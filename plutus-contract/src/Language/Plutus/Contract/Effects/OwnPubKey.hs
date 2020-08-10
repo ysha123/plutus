@@ -1,37 +1,38 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE DerivingVia         #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE MonoLocalBinds      #-}
-{-# LANGUAGE OverloadedLabels    #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+
 module Language.Plutus.Contract.Effects.OwnPubKey where
 
-import           Data.Aeson                       (FromJSON, ToJSON, toJSON)
-import qualified Data.Aeson                       as JSON
-import           Data.Aeson.Types                 (withText)
-import           Data.Row
-import qualified Data.Text                        as Text
-import           Data.Text.Prettyprint.Doc
-import           Data.Text.Prettyprint.Doc.Extras
-import           GHC.Generics                     (Generic)
-import           Ledger.Crypto                    (PubKey)
-
-import           Language.Plutus.Contract.Request (ContractRow, requestMaybe)
-import           Language.Plutus.Contract.Schema  (Event (..), Handlers (..), Input, Output)
-import           Language.Plutus.Contract.Types   (AsContractError, Contract)
+import Data.Aeson (FromJSON, ToJSON, toJSON)
+import qualified Data.Aeson as JSON
+import Data.Aeson.Types (withText)
+import Data.Row
+import qualified Data.Text as Text
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Extras
+import GHC.Generics (Generic)
+import Language.Plutus.Contract.Request (ContractRow, requestMaybe)
+import Language.Plutus.Contract.Schema (Event (..), Handlers (..), Input, Output)
+import Language.Plutus.Contract.Types (AsContractError, Contract)
+import Ledger.Crypto (PubKey)
 
 type OwnPubKeySym = "own-pubkey"
 
 type HasOwnPubKey s =
-  ( HasType OwnPubKeySym PubKey (Input s)
-  , HasType OwnPubKeySym OwnPubKeyRequest (Output s)
-  , ContractRow s)
+  ( HasType OwnPubKeySym PubKey (Input s),
+    HasType OwnPubKeySym OwnPubKeyRequest (Output s),
+    ContractRow s
+  )
 
 type OwnPubKey = OwnPubKeySym .== (PubKey, OwnPubKeyRequest)
 
@@ -45,13 +46,13 @@ data OwnPubKeyRequest = WaitingForPubKey
 -- whatever Aeson does to be canon - but for now this is equivalent
 -- and faster.
 instance ToJSON OwnPubKeyRequest where
-    toJSON WaitingForPubKey = JSON.String "WaitingForPubKey"
+  toJSON WaitingForPubKey = JSON.String "WaitingForPubKey"
 
 instance FromJSON OwnPubKeyRequest where
-    parseJSON =
-        withText "OwnPubKeyRequest" $ \case
-            "WaitingForPubKey" -> pure WaitingForPubKey
-            other -> fail $ "Invalid constructor: " <> Text.unpack other
+  parseJSON =
+    withText "OwnPubKeyRequest" $ \case
+      "WaitingForPubKey" -> pure WaitingForPubKey
+      other -> fail $ "Invalid constructor: " <> Text.unpack other
 
 deriving via (PrettyShow OwnPubKeyRequest) instance Pretty OwnPubKeyRequest
 
@@ -66,16 +67,16 @@ deriving via (PrettyShow OwnPubKeyRequest) instance Pretty OwnPubKeyRequest
 ownPubKey :: forall s e. (AsContractError e, HasOwnPubKey s) => Contract s e PubKey
 ownPubKey = requestMaybe @OwnPubKeySym @_ @_ @s WaitingForPubKey Just
 
-event
-    :: forall s.
-    ( HasOwnPubKey s )
-    => PubKey
-    -> Event s
+event ::
+  forall s.
+  (HasOwnPubKey s) =>
+  PubKey ->
+  Event s
 event = Event . IsJust (Label @OwnPubKeySym)
 
-request
-    :: forall s.
-    ( HasOwnPubKey s )
-    => Handlers s
-    -> Maybe OwnPubKeyRequest
+request ::
+  forall s.
+  (HasOwnPubKey s) =>
+  Handlers s ->
+  Maybe OwnPubKeyRequest
 request (Handlers r) = trial' r (Label @OwnPubKeySym)

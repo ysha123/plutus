@@ -1,69 +1,68 @@
--- | Various views of PLC entities.
-
-{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-- | Various views of PLC entities.
 module Language.PlutusCore.View
-    ( IterApp(..)
-    , TermIterApp
-    , PrimIterApp
-    , constantAsStagedBuiltinName
-    , termAsBuiltin
-    , termAsTermIterApp
-    , termAsPrimIterApp
-    ) where
+  ( IterApp (..),
+    TermIterApp,
+    PrimIterApp,
+    constantAsStagedBuiltinName,
+    termAsBuiltin,
+    termAsTermIterApp,
+    termAsPrimIterApp,
+  )
+where
 
-import           PlutusPrelude
-
-import           Language.PlutusCore.Core
-
-import           Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc
+import Language.PlutusCore.Core
+import PlutusPrelude
 
 -- | A function (called "head") applied to a list of arguments (called "spine").
 data IterApp head arg = IterApp
-    { _iterAppHead  :: head
-    , _iterAppSpine :: [arg]
-    }
+  { _iterAppHead :: head,
+    _iterAppSpine :: [arg]
+  }
 
 -- | An iterated application of a 'Term' to a list of 'Term's.
 type TermIterApp tyname name uni a =
-    IterApp (Term tyname name uni a) (Term tyname name uni a)
+  IterApp (Term tyname name uni a) (Term tyname name uni a)
 
 -- | An iterated application of a 'BuiltinName' to a list of 'Value's.
 type PrimIterApp tyname name uni a =
-    IterApp StagedBuiltinName (Value tyname name uni a)
+  IterApp StagedBuiltinName (Value tyname name uni a)
 
 instance (PrettyBy config head, PrettyBy config arg) => PrettyBy config (IterApp head arg) where
-    prettyBy config (IterApp appHead appSpine) =
-        parens $ foldl' (\fun arg -> fun <+> prettyBy config arg) (prettyBy config appHead) appSpine
+  prettyBy config (IterApp appHead appSpine) =
+    parens $ foldl' (\fun arg -> fun <+> prettyBy config arg) (prettyBy config appHead) appSpine
 
 -- | View a 'Constant' as a 'StagedBuiltinName'.
 constantAsStagedBuiltinName :: Builtin a -> StagedBuiltinName
-constantAsStagedBuiltinName (BuiltinName    _ name) = StaticStagedBuiltinName  name
+constantAsStagedBuiltinName (BuiltinName _ name) = StaticStagedBuiltinName name
 constantAsStagedBuiltinName (DynBuiltinName _ name) = DynamicStagedBuiltinName name
 
 -- | View a 'Term' as a 'Constant'.
 termAsBuiltin :: Term tyname name uni a -> Maybe (Builtin a)
 termAsBuiltin (Builtin _ bi) = Just bi
-termAsBuiltin _              = Nothing
+termAsBuiltin _ = Nothing
 
 -- | An iterated application of a 'Term' to a list of 'Term's.
 termAsTermIterApp :: Term tyname name uni a -> TermIterApp tyname name uni a
-termAsTermIterApp = go [] where
+termAsTermIterApp = go []
+  where
     go args (Apply _ fun arg) = go (arg : args) fun
-    go args (TyInst _ fun _)  = go args fun
-    go args  fun              = IterApp fun args
+    go args (TyInst _ fun _) = go args fun
+    go args fun = IterApp fun args
 
 -- | View a 'Term' as an iterated application of a 'BuiltinName' to a list of 'Value's.
 termAsPrimIterApp :: Term tyname name uni a -> Maybe (PrimIterApp tyname name uni a)
 termAsPrimIterApp term = do
-    let IterApp termHead spine = termAsTermIterApp term
-    headName <- constantAsStagedBuiltinName <$> termAsBuiltin termHead
-    -- This is commented out for two reasons:
-    -- 1. we use 'termAsPrimIterApp' in abstract machines and we may not want to have this overhead
-    -- 2. 'Error' is not a value, but we can return 'Error' from a failed constant application
-    --    and then this function incorrectly returns 'Nothing' instead of indicating that an error
-    --    has occurred or doing something else that makes sense.
-    -- TODO: resolve this.
-    -- guard $ all isTermValue spine
-    Just $ IterApp headName spine
+  let IterApp termHead spine = termAsTermIterApp term
+  headName <- constantAsStagedBuiltinName <$> termAsBuiltin termHead
+  -- This is commented out for two reasons:
+  -- 1. we use 'termAsPrimIterApp' in abstract machines and we may not want to have this overhead
+  -- 2. 'Error' is not a value, but we can return 'Error' from a failed constant application
+  --    and then this function incorrectly returns 'Nothing' instead of indicating that an error
+  --    has occurred or doing something else that makes sense.
+  -- TODO: resolve this.
+  -- guard $ all isTermValue spine
+  Just $ IterApp headName spine

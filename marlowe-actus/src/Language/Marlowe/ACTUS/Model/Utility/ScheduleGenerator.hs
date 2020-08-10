@@ -2,26 +2,38 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module Language.Marlowe.ACTUS.Model.Utility.ScheduleGenerator
-  ( generateRecurrentScheduleWithCorrections
-  , plusCycle
-  , sup
-  , inf
-  , remove
+  ( generateRecurrentScheduleWithCorrections,
+    plusCycle,
+    sup,
+    inf,
+    remove,
   )
 where
 
-import           Control.Arrow                                    ((>>>))
-import           Data.Function                                    ((&))
-import qualified Data.List                                        as L (elem, init, last, notElem)
-import           Data.Time.Calendar                               (Day, addDays, addGregorianMonthsClip,
-                                                                   addGregorianYearsClip, fromGregorian,
-                                                                   gregorianMonthLength, toGregorian)
-import           Language.Marlowe.ACTUS.Definitions.ContractTerms (Cycle (..), EOMC (EOMC_EOM), Period (..),
-                                                                   ScheduleConfig (..), Stub (ShortStub))
-import           Language.Marlowe.ACTUS.Definitions.Schedule      (ShiftedDay (calculationDay, paymentDay),
-                                                                   ShiftedSchedule)
-import           Language.Marlowe.ACTUS.Model.Utility.DateShift   (applyBDC)
-
+import Control.Arrow ((>>>))
+import Data.Function ((&))
+import qualified Data.List as L (elem, init, last, notElem)
+import Data.Time.Calendar
+  ( Day,
+    addDays,
+    addGregorianMonthsClip,
+    addGregorianYearsClip,
+    fromGregorian,
+    gregorianMonthLength,
+    toGregorian,
+  )
+import Language.Marlowe.ACTUS.Definitions.ContractTerms
+  ( Cycle (..),
+    EOMC (EOMC_EOM),
+    Period (..),
+    ScheduleConfig (..),
+    Stub (ShortStub),
+  )
+import Language.Marlowe.ACTUS.Definitions.Schedule
+  ( ShiftedDay (calculationDay, paymentDay),
+    ShiftedSchedule,
+  )
+import Language.Marlowe.ACTUS.Model.Utility.DateShift (applyBDC)
 
 sup :: [ShiftedDay] -> Day -> ShiftedDay
 sup set threshold =
@@ -49,25 +61,24 @@ endDateCorrection includeEndDay endDay schedule
 generateRecurrentSchedule :: Cycle -> Day -> Day -> [Day]
 generateRecurrentSchedule Cycle {..} anchorDate endDate =
   let go :: Day -> Integer -> [Day] -> [Day]
-      go current k acc = if current > endDate
-        then acc
-        else
-          (let current' = shiftDate anchorDate (k * n) p
-           in  go current' (k + 1) (acc ++ [current])
-          )
-  in  go anchorDate 0 []
+      go current k acc =
+        if current > endDate
+          then acc
+          else
+            ( let current' = shiftDate anchorDate (k * n) p
+               in go current' (k + 1) (acc ++ [current])
+            )
+   in go anchorDate 0 []
 
-
-generateRecurrentScheduleWithCorrections
-  :: Day -> Cycle -> Day -> ScheduleConfig -> ShiftedSchedule
-generateRecurrentScheduleWithCorrections anchorDate cycle endDate ScheduleConfig {..}
-  = generateRecurrentSchedule cycle anchorDate endDate &
-      (endDateCorrection includeEndDay endDate >>>
-      (fmap $ applyEOMC anchorDate cycle eomc) >>>
-      (fmap $ applyBDC bdc calendar) >>>
-      stubCorrection (stub cycle) endDate)
-
-
+generateRecurrentScheduleWithCorrections ::
+  Day -> Cycle -> Day -> ScheduleConfig -> ShiftedSchedule
+generateRecurrentScheduleWithCorrections anchorDate cycle endDate ScheduleConfig {..} =
+  generateRecurrentSchedule cycle anchorDate endDate
+    & ( endDateCorrection includeEndDay endDate
+          >>> (fmap $ applyEOMC anchorDate cycle eomc)
+          >>> (fmap $ applyBDC bdc calendar)
+          >>> stubCorrection (stub cycle) endDate
+      )
 
 plusCycle :: Day -> Cycle -> Day
 plusCycle date cycle = shiftDate date (n cycle) (p cycle)
@@ -81,26 +92,25 @@ shiftDate date n p = case p of
   P_H -> addGregorianMonthsClip (n * 6) date
   P_Y -> addGregorianYearsClip n date
 
-
 {- End of Month Convention -}
 applyEOMC :: Day -> Cycle -> EOMC -> Day -> Day
 applyEOMC s Cycle {..} endOfMonthConvention date
   | isLastDayOfMonthWithLessThan31Days s
-    && p /= P_D
-    && p /= P_W
-    && endOfMonthConvention == EOMC_EOM
-  = moveToEndOfMonth date
-  | otherwise
-  = date
+      && p /= P_D
+      && p /= P_W
+      && endOfMonthConvention == EOMC_EOM =
+    moveToEndOfMonth date
+  | otherwise =
+    date
 
 isLastDayOfMonthWithLessThan31Days :: Day -> Bool
 isLastDayOfMonthWithLessThan31Days date =
   let (day, month, year) = toGregorian date
       isLastDay = gregorianMonthLength (toInteger year) month == fromInteger day
-  in  day <  31 && isLastDay
+   in day < 31 && isLastDay
 
 moveToEndOfMonth :: Day -> Day
 moveToEndOfMonth date =
   let (_, month, year) = toGregorian date
-      monthLength      = gregorianMonthLength (toInteger year) month
-  in  fromGregorian (toInteger year) month monthLength
+      monthLength = gregorianMonthLength (toInteger year) month
+   in fromGregorian (toInteger year) month monthLength

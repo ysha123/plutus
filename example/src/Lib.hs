@@ -1,8 +1,9 @@
 module Lib
-    ( someFunc
-    ) where
+  ( someFunc,
+  )
+where
 
-import           Language.PlutusCore
+import Language.PlutusCore
 
 someFunc :: IO ()
 someFunc = putStrLn "someFunc"

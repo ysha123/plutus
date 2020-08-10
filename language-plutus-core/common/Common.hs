@@ -1,28 +1,28 @@
 module Common
-    ( TestNested
-    , runTestNestedIn
-    , runTestNested
-    , testNested
-    , goldenVsText
-    , goldenVsTextM
-    , goldenVsDoc
-    , goldenVsDocM
-    , nestedGoldenVsText
-    , nestedGoldenVsTextM
-    , nestedGoldenVsDoc
-    , nestedGoldenVsDocM
-    ) where
+  ( TestNested,
+    runTestNestedIn,
+    runTestNested,
+    testNested,
+    goldenVsText,
+    goldenVsTextM,
+    goldenVsDoc,
+    goldenVsDocM,
+    nestedGoldenVsText,
+    nestedGoldenVsTextM,
+    nestedGoldenVsDoc,
+    nestedGoldenVsDocM,
+  )
+where
 
-import           PlutusPrelude
-
-import           Control.Monad.Reader (Reader, runReader)
+import Control.Monad.Reader (Reader, runReader)
 import qualified Control.Monad.Reader as Reader
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Text            (Text)
-import           Data.Text.Encoding   (encodeUtf8)
-import           System.FilePath      ((</>))
-import           Test.Tasty
-import           Test.Tasty.Golden
+import Data.Text (Text)
+import Data.Text.Encoding (encodeUtf8)
+import PlutusPrelude
+import System.FilePath ((</>))
+import Test.Tasty
+import Test.Tasty.Golden
 
 -- | A 'TestTree' of tests under some name prefix.
 type TestNested = Reader [String] TestTree
@@ -38,7 +38,7 @@ runTestNested = runTestNestedIn []
 -- | Descend into a name prefix.
 testNested :: String -> [TestNested] -> TestNested
 testNested folderName =
-    Reader.local (++ [folderName]) . fmap (testGroup folderName) . sequence
+  Reader.local (++ [folderName]) . fmap (testGroup folderName) . sequence
 
 -- | Check the contents of a file against a 'Text'.
 goldenVsText :: TestName -> FilePath -> Text -> TestTree
@@ -47,7 +47,7 @@ goldenVsText name ref = goldenVsTextM name ref . pure
 -- | Check the contents of a file against a 'Text'.
 goldenVsTextM :: TestName -> FilePath -> IO Text -> TestTree
 goldenVsTextM name ref val =
-    goldenVsStringDiff name (\expected actual -> ["diff", "-u", expected, actual]) ref $
+  goldenVsStringDiff name (\expected actual -> ["diff", "-u", expected, actual]) ref $
     BSL.fromStrict . encodeUtf8 <$> val
 
 -- | Check the contents of a file against a 'Doc'.
@@ -65,8 +65,8 @@ nestedGoldenVsText name = nestedGoldenVsTextM name . pure
 -- | Check the contents of a file under a name prefix against a 'Text'.
 nestedGoldenVsTextM :: TestName -> IO Text -> TestNested
 nestedGoldenVsTextM name text = do
-    path <- Reader.ask
-    return $ goldenVsTextM name (foldr (</>) (name ++ ".plc.golden") path) text
+  path <- Reader.ask
+  return $ goldenVsTextM name (foldr (</>) (name ++ ".plc.golden") path) text
 
 -- | Check the contents of a file under a name prefix against a 'Text'.
 nestedGoldenVsDoc :: TestName -> Doc ann -> TestNested

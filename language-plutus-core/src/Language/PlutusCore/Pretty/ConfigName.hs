@@ -1,9 +1,10 @@
 module Language.PlutusCore.Pretty.ConfigName
-    ( PrettyConfigName (..)
-    , HasPrettyConfigName (..)
-    , defPrettyConfigName
-    , debugPrettyConfigName
-    ) where
+  ( PrettyConfigName (..),
+    HasPrettyConfigName (..),
+    defPrettyConfigName,
+    debugPrettyConfigName,
+  )
+where
 
 {- Note [PLC names pretty-printing]
 UPDATE: We no longer have such fancy names that this note describes.
@@ -97,12 +98,13 @@ required). This is something that we may try to improve later.
 
 -- | A config that determines how to pretty-print a PLC name.
 newtype PrettyConfigName = PrettyConfigName
-    { _pcnShowsUnique :: Bool -- ^ Whether to show the 'Unique' of a name or not.
-    }
+  { -- | Whether to show the 'Unique' of a name or not.
+    _pcnShowsUnique :: Bool
+  }
 
 -- | A class of configs from which a 'PrettyConfigName' can be extracted.
 class HasPrettyConfigName config where
-    toPrettyConfigName :: config -> PrettyConfigName
+  toPrettyConfigName :: config -> PrettyConfigName
 
 -- | The 'PrettyConfigName' used by default: print neither 'Unique's, nor name attachments.
 defPrettyConfigName :: PrettyConfigName

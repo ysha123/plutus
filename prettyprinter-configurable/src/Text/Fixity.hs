@@ -1,23 +1,23 @@
 -- | Machinery for deciding whether an expression needs to be wrapped in parentheses or not.
-
 module Text.Fixity
-    ( Precedence
-    , Associativity (..)
-    , FixityOver (..)
-    , Fixity
-    , Direction (..)
-    , RenderContextOver (..)
-    , RenderContext
-    , encloseIn
-    , botFixity
-    , juxtFixity
-    , unitFixity
-    , topFixity
-    , botRenderContext
-    , topRenderContext
-    ) where
+  ( Precedence,
+    Associativity (..),
+    FixityOver (..),
+    Fixity,
+    Direction (..),
+    RenderContextOver (..),
+    RenderContext,
+    encloseIn,
+    botFixity,
+    juxtFixity,
+    unitFixity,
+    topFixity,
+    botRenderContext,
+    topRenderContext,
+  )
+where
 
-import           Text.Fixity.Internal
+import Text.Fixity.Internal
 
 -- | Fractional precedence, so that it's always possible to squeeze an operator precedence between
 -- two existing precedences. Ranges over @[-20, 120]@. A normal operator should have a precedence

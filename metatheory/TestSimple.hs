@@ -2,74 +2,79 @@
 
 module Main where
 
-import           Control.Exception
-import           System.Environment
-import           System.Exit
-import           System.Process
+import Control.Exception
+import qualified MAlonzo.Code.Main as M
+import System.Environment
+import System.Exit
+import System.Process
 
-import qualified MAlonzo.Code.Main  as M
-
-succeedingEvalTests = ["succInteger"
-        ,"unitval"
-        ,"true"
-        ,"false"
-        ,"churchZero"
-        ,"churchSucc"
-        ,"overapplication"
-        ,"factorial"
-        ,"fibonacci"
-        ,"NatRoundTrip"
-        ,"ListSum"
-        ,"IfIntegers"
-        ,"ApplyAdd1"
-        ,"ApplyAdd2"
-        ]
+succeedingEvalTests =
+  [ "succInteger",
+    "unitval",
+    "true",
+    "false",
+    "churchZero",
+    "churchSucc",
+    "overapplication",
+    "factorial",
+    "fibonacci",
+    "NatRoundTrip",
+    "ListSum",
+    "IfIntegers",
+    "ApplyAdd1",
+    "ApplyAdd2"
+  ]
 
 failingEvalTests = ["DivideByZero"]
 
-succeedingTCTests = ["succInteger"
-        ,"unitval"
-        ,"true"
-        ,"false"
-        ,"churchZero"
-        ,"churchSucc"
-        ,"overapplication"
-        ,"factorial"
-        ,"fibonacci"
-        ,"NatRoundTrip"
-        ,"ListSum"
-        ,"IfIntegers"
-        ,"ApplyAdd1"
-        ,"ApplyAdd2"
-        ]
+succeedingTCTests =
+  [ "succInteger",
+    "unitval",
+    "true",
+    "false",
+    "churchZero",
+    "churchSucc",
+    "overapplication",
+    "factorial",
+    "fibonacci",
+    "NatRoundTrip",
+    "ListSum",
+    "IfIntegers",
+    "ApplyAdd1",
+    "ApplyAdd2"
+  ]
 
 blah :: Maybe String -> [String]
-blah Nothing     = []
-blah (Just mode) = ["--mode",mode]
+blah Nothing = []
+blah (Just mode) = ["--mode", mode]
 
 -- this is likely to raise either an exitFailure or exitSuccess exception
 runTest :: String -> Maybe String -> String -> IO ()
 runTest command mode test = do
-  example <- readProcess "plc" ["example","-s",test] []
+  example <- readProcess "plc" ["example", "-s", test] []
   writeFile "tmp" example
   putStrLn $ "test: " ++ test ++ " [" ++ command ++ "]"
-  withArgs ([command,"--file","tmp"] ++ blah mode)  M.main
+  withArgs ([command, "--file", "tmp"] ++ blah mode) M.main
 
 runSucceedingTests :: String -> Maybe String -> [String] -> IO ()
 runSucceedingTests command mode [] = return ()
-runSucceedingTests command mode (test:tests) = catch
-  (runTest command mode test)
-  (\ e -> case e of
-      ExitFailure _ -> exitFailure
-      ExitSuccess   -> runSucceedingTests command mode tests)
+runSucceedingTests command mode (test : tests) =
+  catch
+    (runTest command mode test)
+    ( \e -> case e of
+        ExitFailure _ -> exitFailure
+        ExitSuccess -> runSucceedingTests command mode tests
+    )
 
 runFailingTests :: String -> Maybe String -> [String] -> IO ()
 runFailingTests command mode [] = return ()
-runFailingTests command mode (test:tests) = catch
-  (runTest command mode test)
-  (\ e -> case e of
-      ExitFailure _ -> runFailingTests command mode tests
-      ExitSuccess   -> exitSuccess)
+runFailingTests command mode (test : tests) =
+  catch
+    (runTest command mode test)
+    ( \e -> case e of
+        ExitFailure _ -> runFailingTests command mode tests
+        ExitSuccess -> exitSuccess
+    )
 
 main = do
   putStrLn "running succ L..."
@@ -98,4 +103,3 @@ main = do
   runFailingTests "evaluate" (Just "U") failingEvalTests
   putStrLn "running succ U..."
   runSucceedingTests "typecheck" Nothing succeedingTCTests
-

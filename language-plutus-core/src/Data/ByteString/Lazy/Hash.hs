@@ -1,12 +1,14 @@
--- | Hash functions for lazy [[Data.ByteString.Lazy.ByteString]]s
 {-# LANGUAGE TypeApplications #-}
-module Data.ByteString.Lazy.Hash
-    ( sha2
-    , sha3
-    ) where
 
-import           Crypto.Hash          (SHA256, SHA3_256, hashlazy)
-import qualified Data.ByteArray       as B
+-- | Hash functions for lazy [[Data.ByteString.Lazy.ByteString]]s
+module Data.ByteString.Lazy.Hash
+  ( sha2,
+    sha3,
+  )
+where
+
+import Crypto.Hash (SHA256, SHA3_256, hashlazy)
+import qualified Data.ByteArray as B
 import qualified Data.ByteString.Lazy as BSL
 
 -- | Hash a [[BSL.ByteString]] using the SHA-256 hash function.

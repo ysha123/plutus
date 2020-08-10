@@ -17,32 +17,36 @@
 -- Of note in this module is the use of 'nullProjection' as a way of
 -- ignoring the 'state'.
 module Plutus.SCB.Command
-    ( installCommand
-    , saveBalancedTx
-    , saveBalancedTxResult
-    , saveContractState
+  ( installCommand,
+    saveBalancedTx,
+    saveBalancedTxResult,
+    saveContractState,
+
     -- * Commands related to updating the contract state
-    , sendContractEvent
-    ) where
+    sendContractEvent,
+  )
+where
 
-import           Eventful                   (Aggregate (Aggregate), aggregateCommandHandler, aggregateProjection)
+import Eventful (Aggregate (Aggregate), aggregateCommandHandler, aggregateProjection)
 import qualified Ledger
-import           Plutus.SCB.Events          (ChainEvent (ContractEvent, UserEvent), ContractInstanceState,
-                                             UserEvent (ContractStateTransition, InstallContract))
-import qualified Plutus.SCB.Events          as Events
-import           Plutus.SCB.Query           (nullProjection)
-
+import Plutus.SCB.Events
+  ( ChainEvent (ContractEvent, UserEvent),
+    ContractInstanceState,
+    UserEvent (ContractStateTransition, InstallContract),
+  )
+import qualified Plutus.SCB.Events as Events
 import qualified Plutus.SCB.Events.Contract as Events.Contract
+import Plutus.SCB.Query (nullProjection)
 
 -- | An aggregate that just sends a list of events with no state
 sendEvents ::
   forall a t.
-  (a -> [ChainEvent t])
-  -> Aggregate () (ChainEvent t) a
+  (a -> [ChainEvent t]) ->
+  Aggregate () (ChainEvent t) a
 sendEvents f =
   Aggregate
-    { aggregateProjection = nullProjection
-    , aggregateCommandHandler =
+    { aggregateProjection = nullProjection,
+      aggregateCommandHandler =
         \() a -> f a
     }
 

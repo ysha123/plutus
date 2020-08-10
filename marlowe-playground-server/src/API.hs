@@ -1,35 +1,44 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE TypeOperators #-}
+
 module API where
 
-import           Control.Newtype.Generics                         (Newtype)
-import           Data.Aeson                                       (FromJSON, ToJSON)
-import           Data.Text                                        (Text)
-import           GHC.Generics                                     (Generic)
-import           Language.Haskell.Interpreter                     (InterpreterError, InterpreterResult, SourceCode)
-import qualified Language.Marlowe                                 as M
+import Control.Newtype.Generics (Newtype)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Text (Text)
+import GHC.Generics (Generic)
+import Language.Haskell.Interpreter (InterpreterError, InterpreterResult, SourceCode)
+import qualified Language.Marlowe as M
 import qualified Language.Marlowe.ACTUS.Definitions.ContractTerms as CT
-import qualified Marlowe.Symbolic.Types.Request                   as MSReq
-import qualified Marlowe.Symbolic.Types.Response                  as MSRes
-import           Servant.API                                      ((:<|>), (:>), Get, Header, JSON, NoContent, Post,
-                                                                   ReqBody)
-import           Servant.API.WebSocket                            (WebSocketPending)
+import qualified Marlowe.Symbolic.Types.Request as MSReq
+import qualified Marlowe.Symbolic.Types.Response as MSRes
+import Servant.API
+  ( Get,
+    Header,
+    JSON,
+    NoContent,
+    Post,
+    ReqBody,
+    (:<|>),
+    (:>),
+  )
+import Servant.API.WebSocket (WebSocketPending)
 
-type API
-   = "contract" :> "haskell" :> ReqBody '[ JSON] SourceCode :> Post '[ JSON] (Either InterpreterError (InterpreterResult RunResult))
-     :<|> "health" :> Get '[ JSON] ()
-     :<|> "actus" :> "generate" :> ReqBody '[ JSON] CT.ContractTerms :> Post '[ JSON] (Either String M.Contract)
-     :<|> "actus" :> "generate-static" :> ReqBody '[ JSON] CT.ContractTerms :> Post '[ JSON] (Either String M.Contract)
+type API =
+  "contract" :> "haskell" :> ReqBody '[JSON] SourceCode :> Post '[JSON] (Either InterpreterError (InterpreterResult RunResult))
+    :<|> "health" :> Get '[JSON] ()
+    :<|> "actus" :> "generate" :> ReqBody '[JSON] CT.ContractTerms :> Post '[JSON] (Either String M.Contract)
+    :<|> "actus" :> "generate-static" :> ReqBody '[JSON] CT.ContractTerms :> Post '[JSON] (Either String M.Contract)
 
 type WSAPI = "ws" :> WebSocketPending
 
 type MarloweSymbolicAPI = "marlowe-analysis" :> Header "X-Amz-Invocation-Type" Text :> Header "x-api-key" Text :> ReqBody '[JSON] MSReq.Request :> Post '[JSON] NoContent
 
 newtype RunResult = RunResult Text
-   deriving stock (Show, Eq, Generic)
-   deriving newtype (ToJSON, FromJSON)
-   deriving anyclass (Newtype)
+  deriving stock (Show, Eq, Generic)
+  deriving newtype (ToJSON, FromJSON)
+  deriving anyclass (Newtype)

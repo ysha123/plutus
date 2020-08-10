@@ -1,6 +1,7 @@
-module Data.Text.Extras(
-    tshow
-    ) where
+module Data.Text.Extras
+  ( tshow,
+  )
+where
 
 import qualified Data.Text as T
 

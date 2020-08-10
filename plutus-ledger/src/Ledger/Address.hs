@@ -1,48 +1,51 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DerivingVia       #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# OPTIONS_GHC -fno-specialise #-}
-{-# OPTIONS_GHC -fno-strictness #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-simplifiable-class-constraints #-}
 {-# OPTIONS_GHC -fno-omit-interface-pragmas #-}
-module Ledger.Address (
-    Address (..),
+{-# OPTIONS_GHC -fno-specialise #-}
+{-# OPTIONS_GHC -fno-strictness #-}
+
+module Ledger.Address
+  ( Address (..),
     pubKeyAddress,
     scriptAddress,
     scriptHashAddress,
-    ) where
+  )
+where
 
-import           Codec.Serialise.Class     (Serialise)
-import           Data.Aeson                (FromJSON, FromJSONKey (..), ToJSON, ToJSONKey (..))
-import           Data.Hashable             (Hashable)
-import           Data.Text.Prettyprint.Doc
-import           GHC.Generics              (Generic)
-import           IOTS                      (IotsType)
-import qualified Language.PlutusTx         as PlutusTx
-import qualified Language.PlutusTx.Eq      as PlutusTx
-
-import           Ledger.Crypto
-import           Ledger.Orphans            ()
-import           Ledger.Scripts
+import Codec.Serialise.Class (Serialise)
+import Data.Aeson (FromJSON, FromJSONKey (..), ToJSON, ToJSONKey (..))
+import Data.Hashable (Hashable)
+import Data.Text.Prettyprint.Doc
+import GHC.Generics (Generic)
+import IOTS (IotsType)
+import qualified Language.PlutusTx as PlutusTx
+import qualified Language.PlutusTx.Eq as PlutusTx
+import Ledger.Crypto
+import Ledger.Orphans ()
+import Ledger.Scripts
 
 -- | A payment address using a hash as the id.
-data Address = PubKeyAddress PubKeyHash
-    | ScriptAddress ValidatorHash
-    deriving stock (Eq, Ord, Show, Generic)
-    deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey, IotsType, Serialise, Hashable)
+data Address
+  = PubKeyAddress PubKeyHash
+  | ScriptAddress ValidatorHash
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON, ToJSONKey, FromJSONKey, IotsType, Serialise, Hashable)
 
 instance Pretty Address where
-    pretty (PubKeyAddress pkh) = "PubKeyAddress:" <+> pretty pkh
-    pretty (ScriptAddress vh)  = "ScriptAddress:" <+> pretty vh
+  pretty (PubKeyAddress pkh) = "PubKeyAddress:" <+> pretty pkh
+  pretty (ScriptAddress vh) = "ScriptAddress:" <+> pretty vh
 
 instance PlutusTx.Eq Address where
-    PubKeyAddress pkh == PubKeyAddress pkh' = pkh PlutusTx.== pkh'
-    ScriptAddress vh  == ScriptAddress vh'  = vh  PlutusTx.== vh'
-    _ == _ = False
+  PubKeyAddress pkh == PubKeyAddress pkh' = pkh PlutusTx.== pkh'
+  ScriptAddress vh == ScriptAddress vh' = vh PlutusTx.== vh'
+  _ == _ = False
 
-{-# INLINABLE pubKeyAddress #-}
+{-# INLINEABLE pubKeyAddress #-}
+
 -- | The address that should be targeted by a transaction output locked by the given public key.
 pubKeyAddress :: PubKey -> Address
 pubKeyAddress pk = PubKeyAddress $ pubKeyHash pk

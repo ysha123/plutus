@@ -1,44 +1,58 @@
 -- | Constraints for transactions
-module Ledger.Constraints(
-    -- $constraints
-    TxConstraints(..)
-    , TxConstraint(..)
-    -- * Defining constraints
-    , mustPayToTheScript
-    , mustPayToPubKey
-    , mustForgeCurrency
-    , mustForgeValue
-    , mustSpendValue
-    , mustSpendPubKeyOutput
-    , mustSpendScriptOutput
-    , mustValidateIn
-    , mustBeSignedBy
-    , mustIncludeDatum
-    , mustPayToOtherScript
-    , mustHashDatum
-    -- * Queries
-    , modifiesUtxoSet
-    , isSatisfiable
-    -- * Checking
-    , checkValidatorCtx
-    -- * Generating transactions
-    , ScriptLookups(..)
-    , MkTxError(..)
-    , UnbalancedTx
-    , scriptInstanceLookups
-    , unspentOutputs
-    , monetaryPolicy
-    , otherScript
-    , otherData
-    , ownPubKeyHash
-    , mkTx
-    ) where
+module Ledger.Constraints
+  ( -- $constraints
+    TxConstraints (..),
+    TxConstraint (..),
 
-import           Ledger.Constraints.OffChain      (MkTxError (..), ScriptLookups (..), UnbalancedTx, mkTx,
-                                                   monetaryPolicy, otherData, otherScript, ownPubKeyHash,
-                                                   scriptInstanceLookups, unspentOutputs)
-import           Ledger.Constraints.OnChain       (checkValidatorCtx)
-import           Ledger.Constraints.TxConstraints
+    -- * Defining constraints
+    mustPayToTheScript,
+    mustPayToPubKey,
+    mustForgeCurrency,
+    mustForgeValue,
+    mustSpendValue,
+    mustSpendPubKeyOutput,
+    mustSpendScriptOutput,
+    mustValidateIn,
+    mustBeSignedBy,
+    mustIncludeDatum,
+    mustPayToOtherScript,
+    mustHashDatum,
+
+    -- * Queries
+    modifiesUtxoSet,
+    isSatisfiable,
+
+    -- * Checking
+    checkValidatorCtx,
+
+    -- * Generating transactions
+    ScriptLookups (..),
+    MkTxError (..),
+    UnbalancedTx,
+    scriptInstanceLookups,
+    unspentOutputs,
+    monetaryPolicy,
+    otherScript,
+    otherData,
+    ownPubKeyHash,
+    mkTx,
+  )
+where
+
+import Ledger.Constraints.OffChain
+  ( MkTxError (..),
+    ScriptLookups (..),
+    UnbalancedTx,
+    mkTx,
+    monetaryPolicy,
+    otherData,
+    otherScript,
+    ownPubKeyHash,
+    scriptInstanceLookups,
+    unspentOutputs,
+  )
+import Ledger.Constraints.OnChain (checkValidatorCtx)
+import Ledger.Constraints.TxConstraints
 
 -- $constraints
 -- This module defines 'Ledger.Constraints.TxConstraints.TxConstraints', a list

@@ -1,12 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE LambdaCase #-}
+
 -- | Implements a PIR-to-PIR transformation that makes all recursive term definitions
 -- compilable to PLC. See Note [Thunking recursions] for details.
 module Language.PlutusIR.Transform.ThunkRecursions (thunkRecursions) where
 
-import           PlutusPrelude
-
-import           Language.PlutusIR
+import Language.PlutusIR
+import PlutusPrelude
 
 {- Note [Thunking recursions]
 Our fixpoint combinators in Plutus Core know how to handle mutually recursive values
@@ -71,19 +71,21 @@ any recursive, non-function bindings to become non-strict bindings.
 
 isFunctionType :: Type tyname uni a -> Bool
 isFunctionType = \case
-    TyFun {} -> True
-    _ -> False
+  TyFun {} -> True
+  _ -> False
 
 thunkBinding :: Binding tyname name uni a -> Binding tyname name uni a
 thunkBinding = \case
-    TermBind x Strict d@(VarDecl _ _ ty) rhs | not $ isFunctionType ty -> TermBind x NonStrict d rhs
-    b -> b
+  TermBind x Strict d@(VarDecl _ _ ty) rhs | not $ isFunctionType ty -> TermBind x NonStrict d rhs
+  b -> b
 
 thunkRecursions :: Term tyname name uni a -> Term tyname name uni a
 thunkRecursions = \case
-    -- See Note [Thunking recursions]
-    t@(Let _ Rec _ _) -> t
-        & over termSubterms thunkRecursions
-        & over termBindings thunkBinding
-    t -> t &
-        over termSubterms thunkRecursions
+  -- See Note [Thunking recursions]
+  t@(Let _ Rec _ _) ->
+    t
+      & over termSubterms thunkRecursions
+      & over termBindings thunkBinding
+  t ->
+    t
+      & over termSubterms thunkRecursions

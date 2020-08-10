@@ -1,86 +1,99 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeOperators     #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NamedFieldPuns    #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TypeFamilies      #-}
+
 {-# OPTIONS -fplugin-opt Language.PlutusTx.Plugin:debug-context #-}
+
 -- | A general-purpose escrow contract in Plutus
-module Language.PlutusTx.Coordination.Contracts.Escrow(
-    -- $escrow
-    Escrow
-    , EscrowError(..)
-    , AsEscrowError(..)
-    , EscrowParams(..)
-    , EscrowTarget(..)
-    , payToScriptTarget
-    , payToPubKeyTarget
-    , targetTotal
-    , escrowContract
-    , payRedeemRefund
-    , scriptInstance
+module Language.PlutusTx.Coordination.Contracts.Escrow
+  ( -- $escrow
+    Escrow,
+    EscrowError (..),
+    AsEscrowError (..),
+    EscrowParams (..),
+    EscrowTarget (..),
+    payToScriptTarget,
+    payToPubKeyTarget,
+    targetTotal,
+    escrowContract,
+    payRedeemRefund,
+    scriptInstance,
+
     -- * Actions
-    , pay
-    , payEp
-    , redeem
-    , redeemEp
-    , refund
-    , refundEp
-    , RedeemFailReason(..)
-    , RedeemSuccess(..)
-    , RefundSuccess(..)
-    , EscrowSchema
-    ) where
+    pay,
+    payEp,
+    redeem,
+    redeemEp,
+    refund,
+    refundEp,
+    RedeemFailReason (..),
+    RedeemSuccess (..),
+    RefundSuccess (..),
+    EscrowSchema,
+  )
+where
 
-import           Control.Lens                   (makeClassyPrisms, review)
-import           Control.Monad                  (void)
-import           Control.Monad.Error.Lens       (throwing)
-
+import Control.Lens (makeClassyPrisms, review)
+import Control.Monad (void)
+import Control.Monad.Error.Lens (throwing)
+import Language.Plutus.Contract
+import qualified Language.Plutus.Contract.Typed.Tx as Typed
+import qualified Language.PlutusTx as PlutusTx
+import Language.PlutusTx.Prelude hiding (Applicative (..), Semigroup (..), check, foldMap)
+import Ledger
+  ( Datum (..),
+    DatumHash,
+    PubKeyHash,
+    Slot,
+    TxId,
+    TxOutTx (..),
+    ValidatorHash,
+    interval,
+    scriptOutputsAt,
+    txId,
+    txSignedBy,
+    valuePaidTo,
+  )
 import qualified Ledger
-import           Ledger                         (Datum(..), PubKeyHash, Slot, ValidatorHash, DatumHash, scriptOutputsAt,
-                                                 txSignedBy, valuePaidTo, interval, TxId, TxOutTx (..), txId)
-import           Ledger.Interval                (after, before, from)
-import qualified Ledger.Interval                as Interval
-import qualified Ledger.Tx                      as Tx
-import qualified Ledger.Typed.Scripts           as Scripts
-import           Ledger.Typed.Scripts           (ScriptInstance)
-import           Ledger.Validation              (ValidatorCtx (..), TxInfo (..))
-import           Ledger.Value                   (Value, lt, geq)
 import Ledger.Constraints (TxConstraints)
 import qualified Ledger.Constraints as Constraints
-
-import qualified Language.Plutus.Contract.Typed.Tx as Typed
-import           Language.Plutus.Contract
-import qualified Language.PlutusTx              as PlutusTx
-import           Language.PlutusTx.Prelude      hiding (Applicative (..), Semigroup(..), check, foldMap)
-
-import qualified Prelude                        as Haskell
-import           Prelude                        (Semigroup(..), foldMap)
+import Ledger.Interval (after, before, from)
+import qualified Ledger.Interval as Interval
+import qualified Ledger.Tx as Tx
+import Ledger.Typed.Scripts (ScriptInstance)
+import qualified Ledger.Typed.Scripts as Scripts
+import Ledger.Validation (TxInfo (..), ValidatorCtx (..))
+import Ledger.Value (Value, geq, lt)
+import Prelude (Semigroup (..), foldMap)
+import qualified Prelude as Haskell
 
 type EscrowSchema =
-    BlockchainActions
-        .\/ Endpoint "pay-escrow" Value
-        .\/ Endpoint "redeem-escrow" ()
-        .\/ Endpoint "refund-escrow" ()
+  BlockchainActions
+    .\/ Endpoint "pay-escrow" Value
+    .\/ Endpoint "redeem-escrow" ()
+    .\/ Endpoint "refund-escrow" ()
 
 data RedeemFailReason = DeadlinePassed | NotEnoughFundsAtAddress
-    deriving (Haskell.Eq, Show)
+  deriving (Haskell.Eq, Show)
 
-data EscrowError =
-    RedeemFailed RedeemFailReason
-    | RefundFailed
-    | EContractError ContractError
-    deriving Show
+data EscrowError
+  = RedeemFailed RedeemFailReason
+  | RefundFailed
+  | EContractError ContractError
+  deriving (Show)
 
 makeClassyPrisms ''EscrowError
 
 instance AsContractError EscrowError where
-    _ContractError = _EContractError
+  _ContractError = _EContractError
 
 -- $escrow
 -- The escrow contract implements the exchange of value between multiple
@@ -106,10 +119,10 @@ instance AsContractError EscrowError where
 -- | Defines where the money should go. Usually we have `d = Datum` (when
 --   defining `EscrowTarget` values in off-chain code). Sometimes we have
 --   `d = DatumHash` (when checking the hashes in on-chain code)
-data EscrowTarget d =
-    PubKeyTarget PubKeyHash Value
-    | ScriptTarget ValidatorHash d Value
-    deriving (Haskell.Functor)
+data EscrowTarget d
+  = PubKeyTarget PubKeyHash Value
+  | ScriptTarget ValidatorHash d Value
+  deriving (Haskell.Functor)
 
 PlutusTx.makeLift ''EscrowTarget
 
@@ -123,15 +136,15 @@ payToScriptTarget :: ValidatorHash -> Datum -> Value -> EscrowTarget Datum
 payToScriptTarget = ScriptTarget
 
 -- | Definition of an escrow contract, consisting of a deadline and a list of targets
-data EscrowParams d =
-    EscrowParams
-        { escrowDeadline :: Slot
-        -- ^ Latest point at which the outputs may be spent.
-        , escrowTargets  :: [EscrowTarget d]
-        -- ^ Where the money should go. For each target, the contract checks that
-        --   the output 'mkTxOutput' of the target is present in the spending
-        --   transaction.
-        } deriving (Haskell.Functor)
+data EscrowParams d = EscrowParams
+  { -- | Latest point at which the outputs may be spent.
+    escrowDeadline :: Slot,
+    -- | Where the money should go. For each target, the contract checks that
+    --   the output 'mkTxOutput' of the target is present in the spending
+    --   transaction.
+    escrowTargets :: [EscrowTarget d]
+  }
+  deriving (Haskell.Functor)
 
 PlutusTx.makeLift ''EscrowParams
 
@@ -143,28 +156,30 @@ targetTotal = foldl (\vl tgt -> vl + targetValue tgt) mempty . escrowTargets
 -- | The 'Value' specified by an 'EscrowTarget'
 targetValue :: EscrowTarget d -> Value
 targetValue = \case
-    PubKeyTarget _ vl -> vl
-    ScriptTarget _ _ vl -> vl
+  PubKeyTarget _ vl -> vl
+  ScriptTarget _ _ vl -> vl
 
 -- | Create a 'Ledger.TxOut' value for the target
 mkTx :: EscrowTarget Datum -> TxConstraints Action PubKeyHash
 mkTx = \case
-    PubKeyTarget pkh vl ->
-        Constraints.mustPayToPubKey pkh vl
-    ScriptTarget vs ds vl ->
-        Constraints.mustPayToOtherScript vs ds vl
+  PubKeyTarget pkh vl ->
+    Constraints.mustPayToPubKey pkh vl
+  ScriptTarget vs ds vl ->
+    Constraints.mustPayToOtherScript vs ds vl
 
 data Action = Redeem | Refund
 
 data Escrow
+
 instance Scripts.ScriptType Escrow where
-    type instance RedeemerType Escrow = Action
-    type instance DatumType Escrow = PubKeyHash
+  type RedeemerType Escrow = Action
+  type DatumType Escrow = PubKeyHash
 
 PlutusTx.makeIsData ''Action
 PlutusTx.makeLift ''Action
 
-{-# INLINABLE meetsTarget #-}
+{-# INLINEABLE meetsTarget #-}
+
 -- | @ptx `meetsTarget` tgt@ if @ptx@ pays at least @targetValue tgt@ to the
 --   target address.
 --
@@ -176,181 +191,182 @@ PlutusTx.makeLift ''Action
 --   poisoning the contract by adding arbitrary outputs to the script address.
 meetsTarget :: TxInfo -> EscrowTarget DatumHash -> Bool
 meetsTarget ptx = \case
-    PubKeyTarget pkh vl ->
-        valuePaidTo ptx pkh `geq` vl
-    ScriptTarget validatorHash dataValue vl ->
-        case scriptOutputsAt validatorHash ptx of
-            [(dataValue', vl')] ->
-                traceIfFalse "dataValue" (dataValue' == dataValue)
-                && traceIfFalse "value" (vl' `geq` vl)
-            _ -> False
+  PubKeyTarget pkh vl ->
+    valuePaidTo ptx pkh `geq` vl
+  ScriptTarget validatorHash dataValue vl ->
+    case scriptOutputsAt validatorHash ptx of
+      [(dataValue', vl')] ->
+        traceIfFalse "dataValue" (dataValue' == dataValue)
+          && traceIfFalse "value" (vl' `geq` vl)
+      _ -> False
 
-{-# INLINABLE validate #-}
+{-# INLINEABLE validate #-}
 validate :: EscrowParams DatumHash -> PubKeyHash -> Action -> ValidatorCtx -> Bool
-validate EscrowParams{escrowDeadline, escrowTargets} contributor action ValidatorCtx{valCtxTxInfo} =
-    case action of
-        Redeem ->
-            traceIfFalse "escrowDeadline-after" (escrowDeadline `after` txInfoValidRange valCtxTxInfo)
-            && traceIfFalse "meetsTarget" (all (meetsTarget valCtxTxInfo) escrowTargets)
-        Refund ->
-            traceIfFalse "escrowDeadline-before" (escrowDeadline `before` txInfoValidRange valCtxTxInfo)
-            && traceIfFalse "txSignedBy" (valCtxTxInfo `txSignedBy` contributor)
+validate EscrowParams {escrowDeadline, escrowTargets} contributor action ValidatorCtx {valCtxTxInfo} =
+  case action of
+    Redeem ->
+      traceIfFalse "escrowDeadline-after" (escrowDeadline `after` txInfoValidRange valCtxTxInfo)
+        && traceIfFalse "meetsTarget" (all (meetsTarget valCtxTxInfo) escrowTargets)
+    Refund ->
+      traceIfFalse "escrowDeadline-before" (escrowDeadline `before` txInfoValidRange valCtxTxInfo)
+        && traceIfFalse "txSignedBy" (valCtxTxInfo `txSignedBy` contributor)
 
 scriptInstance :: EscrowParams Datum -> Scripts.ScriptInstance Escrow
-scriptInstance escrow = go (Haskell.fmap Ledger.datumHash escrow) where
+scriptInstance escrow = go (Haskell.fmap Ledger.datumHash escrow)
+  where
     go escrow' =
-        Scripts.validator @Escrow
-            ($$(PlutusTx.compile [|| validate ||]) `PlutusTx.applyCode` PlutusTx.liftCode escrow')
-            $$(PlutusTx.compile [|| wrap ||])
+      Scripts.validator @Escrow
+        ($$(PlutusTx.compile [||validate||]) `PlutusTx.applyCode` PlutusTx.liftCode escrow')
+        $$(PlutusTx.compile [||wrap||])
     wrap = Scripts.wrapValidator @PubKeyHash @Action
 
-escrowContract
-    :: EscrowParams Datum
-    -> Contract EscrowSchema EscrowError ()
+escrowContract ::
+  EscrowParams Datum ->
+  Contract EscrowSchema EscrowError ()
 escrowContract escrow =
-    let inst = scriptInstance escrow
-        payAndRefund = do
-            vl <- endpoint @"pay-escrow"
-            _ <- pay inst escrow vl
-            _ <- awaitSlot (escrowDeadline escrow)
-            refund inst escrow
-    in void payAndRefund `select` void (redeemEp escrow)
+  let inst = scriptInstance escrow
+      payAndRefund = do
+        vl <- endpoint @"pay-escrow"
+        _ <- pay inst escrow vl
+        _ <- awaitSlot (escrowDeadline escrow)
+        refund inst escrow
+   in void payAndRefund `select` void (redeemEp escrow)
 
 -- | 'pay' with an endpoint that gets the owner's public key and the
 --   contribution.
-payEp
-    ::
-    ( HasWriteTx s
-    , HasOwnPubKey s
-    , HasEndpoint "pay-escrow" Value s
-    , AsEscrowError e
-    )
-    => EscrowParams Datum
-    -> Contract s e TxId
+payEp ::
+  ( HasWriteTx s,
+    HasOwnPubKey s,
+    HasEndpoint "pay-escrow" Value s,
+    AsEscrowError e
+  ) =>
+  EscrowParams Datum ->
+  Contract s e TxId
 payEp escrow = do
-    vl <- mapError (review _EContractError) (endpoint @"pay-escrow")
-    pay (scriptInstance escrow) escrow vl
+  vl <- mapError (review _EContractError) (endpoint @"pay-escrow")
+  pay (scriptInstance escrow) escrow vl
 
 -- | Pay some money into the escrow contract.
-pay
-    :: ( HasWriteTx s
-       , HasOwnPubKey s
-       , AsEscrowError e
-       )
-    => ScriptInstance Escrow
-    -- ^ The instance
-    -> EscrowParams Datum
-    -- ^ The escrow contract
-    -> Value
-    -- ^ How much money to pay in
-    -> Contract s e TxId
+pay ::
+  ( HasWriteTx s,
+    HasOwnPubKey s,
+    AsEscrowError e
+  ) =>
+  -- | The instance
+  ScriptInstance Escrow ->
+  -- | The escrow contract
+  EscrowParams Datum ->
+  -- | How much money to pay in
+  Value ->
+  Contract s e TxId
 pay inst escrow vl = mapError (review _EContractError) $ do
-    pk <- ownPubKey
-    let tx = Constraints.mustPayToTheScript (Ledger.pubKeyHash pk) vl
-                <> Constraints.mustValidateIn (Ledger.interval 1 (escrowDeadline escrow))
-    txId <$> submitTxConstraints inst tx
+  pk <- ownPubKey
+  let tx =
+        Constraints.mustPayToTheScript (Ledger.pubKeyHash pk) vl
+          <> Constraints.mustValidateIn (Ledger.interval 1 (escrowDeadline escrow))
+  txId <$> submitTxConstraints inst tx
 
 newtype RedeemSuccess = RedeemSuccess TxId
-    deriving (Haskell.Eq, Show)
+  deriving (Haskell.Eq, Show)
 
 -- | 'redeem' with an endpoint.
-redeemEp
-    ::
-    ( HasUtxoAt s
-    , HasAwaitSlot s
-    , HasWriteTx s
-    , HasEndpoint "redeem-escrow" () s
-    , AsEscrowError e
-    )
-    => EscrowParams Datum
-    -> Contract s e RedeemSuccess
+redeemEp ::
+  ( HasUtxoAt s,
+    HasAwaitSlot s,
+    HasWriteTx s,
+    HasEndpoint "redeem-escrow" () s,
+    AsEscrowError e
+  ) =>
+  EscrowParams Datum ->
+  Contract s e RedeemSuccess
 redeemEp escrow =
-    mapError (review _EscrowError) $
+  mapError (review _EscrowError) $
     endpoint @"redeem-escrow" >> redeem (scriptInstance escrow) escrow
 
 -- | Redeem all outputs at the contract address using a transaction that
 --   has all the outputs defined in the contract's list of targets.
-redeem
-    ::
-    ( HasUtxoAt s
-    , HasAwaitSlot s
-    , HasWriteTx s
-    , AsEscrowError e
-    )
-    => ScriptInstance Escrow
-    -> EscrowParams Datum
-    -> Contract s e RedeemSuccess
+redeem ::
+  ( HasUtxoAt s,
+    HasAwaitSlot s,
+    HasWriteTx s,
+    AsEscrowError e
+  ) =>
+  ScriptInstance Escrow ->
+  EscrowParams Datum ->
+  Contract s e RedeemSuccess
 redeem inst escrow = mapError (review _EscrowError) $ do
-    let addr = Scripts.scriptAddress inst
-    currentSlot <- awaitSlot 0
-    unspentOutputs <- utxoAt addr
-    let
-        valRange = Interval.to (pred $ escrowDeadline escrow)
-        tx = Typed.collectFromScript unspentOutputs Redeem
-                <> foldMap mkTx (escrowTargets escrow)
-                <> Constraints.mustValidateIn valRange
-    if currentSlot >= escrowDeadline escrow
+  let addr = Scripts.scriptAddress inst
+  currentSlot <- awaitSlot 0
+  unspentOutputs <- utxoAt addr
+  let valRange = Interval.to (pred $ escrowDeadline escrow)
+      tx =
+        Typed.collectFromScript unspentOutputs Redeem
+          <> foldMap mkTx (escrowTargets escrow)
+          <> Constraints.mustValidateIn valRange
+  if currentSlot >= escrowDeadline escrow
     then throwing _RedeemFailed DeadlinePassed
-    else if (foldMap (Tx.txOutValue . Tx.txOutTxOut) unspentOutputs) `lt` targetTotal escrow
-         then throwing _RedeemFailed NotEnoughFundsAtAddress
-         else RedeemSuccess . txId <$> submitTxConstraintsSpending inst unspentOutputs tx
+    else
+      if (foldMap (Tx.txOutValue . Tx.txOutTxOut) unspentOutputs) `lt` targetTotal escrow
+        then throwing _RedeemFailed NotEnoughFundsAtAddress
+        else RedeemSuccess . txId <$> submitTxConstraintsSpending inst unspentOutputs tx
 
 newtype RefundSuccess = RefundSuccess TxId
-    deriving (Haskell.Eq, Show)
+  deriving (Haskell.Eq, Show)
 
 -- | 'refund' with an endpoint.
-refundEp
-    ::
-    ( HasUtxoAt s
-    , HasWriteTx s
-    , HasOwnPubKey s
-    , HasEndpoint "refund-escrow" () s
-    )
-    => EscrowParams Datum
-    -> Contract s EscrowError RefundSuccess
+refundEp ::
+  ( HasUtxoAt s,
+    HasWriteTx s,
+    HasOwnPubKey s,
+    HasEndpoint "refund-escrow" () s
+  ) =>
+  EscrowParams Datum ->
+  Contract s EscrowError RefundSuccess
 refundEp escrow = endpoint @"refund-escrow" >> refund (scriptInstance escrow) escrow
 
 -- | Claim a refund of the contribution.
-refund
-    :: ( HasUtxoAt s
-       , HasOwnPubKey s
-       , HasWriteTx s)
-    => ScriptInstance Escrow
-    -> EscrowParams Datum
-    -> Contract s EscrowError RefundSuccess
+refund ::
+  ( HasUtxoAt s,
+    HasOwnPubKey s,
+    HasWriteTx s
+  ) =>
+  ScriptInstance Escrow ->
+  EscrowParams Datum ->
+  Contract s EscrowError RefundSuccess
 refund inst escrow = do
-    pk <- ownPubKey
-    unspentOutputs <- utxoAt (Scripts.scriptAddress inst)
-    let flt _ (TxOutTx _ txOut) = Ledger.txOutDatum txOut == Just (Ledger.datumHash $ Datum (PlutusTx.toData $ Ledger.pubKeyHash pk))
-        tx' = Typed.collectFromScriptFilter flt unspentOutputs Refund
-                <> Constraints.mustValidateIn (from (succ $ escrowDeadline escrow))
-    if Constraints.modifiesUtxoSet tx'
+  pk <- ownPubKey
+  unspentOutputs <- utxoAt (Scripts.scriptAddress inst)
+  let flt _ (TxOutTx _ txOut) = Ledger.txOutDatum txOut == Just (Ledger.datumHash $ Datum (PlutusTx.toData $ Ledger.pubKeyHash pk))
+      tx' =
+        Typed.collectFromScriptFilter flt unspentOutputs Refund
+          <> Constraints.mustValidateIn (from (succ $ escrowDeadline escrow))
+  if Constraints.modifiesUtxoSet tx'
     then RefundSuccess . txId <$> submitTxConstraintsSpending inst unspentOutputs tx'
     else throwing _RefundFailed ()
 
 -- | Pay some money into the escrow contract. Then release all funds to their
 --   specified targets if enough funds were deposited before the deadline,
 --   or reclaim the contribution if the goal has not been met.
-payRedeemRefund
-    :: ( HasUtxoAt s
-       , HasWriteTx s
-       , HasAwaitSlot s
-       , HasOwnPubKey s
-       )
-    => EscrowParams Datum
-    -> Value
-    -> Contract s EscrowError (Either RefundSuccess RedeemSuccess)
+payRedeemRefund ::
+  ( HasUtxoAt s,
+    HasWriteTx s,
+    HasAwaitSlot s,
+    HasOwnPubKey s
+  ) =>
+  EscrowParams Datum ->
+  Value ->
+  Contract s EscrowError (Either RefundSuccess RedeemSuccess)
 payRedeemRefund params vl = do
-    let inst = scriptInstance params
-    -- Pay the value 'vl' into the contract
-    _ <- pay inst params vl
-    outcome <- selectEither (awaitSlot (escrowDeadline params)) (fundsAtAddressGeq (Scripts.scriptAddress inst) (targetTotal params))
-    -- wait
-    -- for the 'targetTotal' of the contract to appear at the address, or
-    -- for the 'escrowDeadline' to pass, whichever happens first.
-    -- If 'outcome' is a 'Right' then the total amount was deposited before the
-    -- deadline, and we procedd with 'redeem'. If it's a 'Left', there are not
-    -- enough funds at the address and we refund our own contribution.
-    case outcome of
-        Right _ -> Right <$> redeem inst params
-        Left _ -> Left <$> refund inst params
+  let inst = scriptInstance params
+  -- Pay the value 'vl' into the contract
+  _ <- pay inst params vl
+  outcome <- selectEither (awaitSlot (escrowDeadline params)) (fundsAtAddressGeq (Scripts.scriptAddress inst) (targetTotal params))
+  -- wait
+  -- for the 'targetTotal' of the contract to appear at the address, or
+  -- for the 'escrowDeadline' to pass, whichever happens first.
+  -- If 'outcome' is a 'Right' then the total amount was deposited before the
+  -- deadline, and we procedd with 'redeem'. If it's a 'Left', there are not
+  -- enough funds at the address and we refund our own contribution.
+  case outcome of
+    Right _ -> Right <$> redeem inst params
+    Left _ -> Left <$> refund inst params

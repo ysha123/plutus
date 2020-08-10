@@ -1,140 +1,150 @@
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE UndecidableInstances  #-}
-
 module PlutusPrelude
-    ( -- * Reexports from base
-      (&)
-    , (&&&)
-    , (<&>)
-    , toList
-    , bool
-    , first
-    , second
-    , on
-    , isNothing
-    , isJust
-    , fromMaybe
-    , guard
-    , foldl'
-    , fold
-    , for
-    , throw
-    , join
-    , (<=<)
-    , (>=>)
-    , ($>)
-    , fromRight
-    , isRight
-    , void
-    , through
-    , coerce
-    , Generic
-    , NFData
-    , Natural
-    , NonEmpty (..)
-    , Word8
-    , Alternative (..)
-    , Exception
-    , PairT (..)
-    , Coercible
-    , Typeable
+  ( -- * Reexports from base
+    (&),
+    (&&&),
+    (<&>),
+    toList,
+    bool,
+    first,
+    second,
+    on,
+    isNothing,
+    isJust,
+    fromMaybe,
+    guard,
+    foldl',
+    fold,
+    for,
+    throw,
+    join,
+    (<=<),
+    (>=>),
+    ($>),
+    fromRight,
+    isRight,
+    void,
+    through,
+    coerce,
+    Generic,
+    NFData,
+    Natural,
+    NonEmpty (..),
+    Word8,
+    Alternative (..),
+    Exception,
+    PairT (..),
+    Coercible,
+    Typeable,
+
     -- * Lens
-    , Lens'
-    , lens
-    , (^.)
-    , view
-    , (.~)
-    , set
-    , (%~)
-    , over
+    Lens',
+    lens,
+    (^.),
+    view,
+    (.~),
+    set,
+    (%~),
+    over,
+
     -- * Debugging
-    , traceShowId
-    , trace
+    traceShowId,
+    trace,
+
     -- * Reexports from "Control.Composition"
-    , (.*)
+    (.*),
+
     -- * Custom functions
-    , (<<$>>)
-    , (<<*>>)
-    , mtraverse
-    , foldMapM
-    , reoption
-    , (?)
-    , ensure
+    (<<$>>),
+    (<<*>>),
+    mtraverse,
+    foldMapM,
+    reoption,
+    (?),
+    ensure,
+
     -- * Pretty-printing
-    , Doc
-    , ShowPretty (..)
-    , Pretty (..)
-    , PrettyBy (..)
-    , HasPrettyDefaults
-    , PrettyDefaultBy
-    , PrettyAny (..)
-    , Render (..)
-    , display
+    Doc,
+    ShowPretty (..),
+    Pretty (..),
+    PrettyBy (..),
+    HasPrettyDefaults,
+    PrettyDefaultBy,
+    PrettyAny (..),
+    Render (..),
+    display,
+
     -- * GHCi
-    , printPretty
+    printPretty,
+
     -- * Text
-    , showText
-    ) where
+    showText,
+  )
+where
 
-import           Control.Applicative       (Alternative (..))
-import           Control.Arrow             ((&&&))
-import           Control.Composition       ((.*))
-import           Control.DeepSeq           (NFData)
-import           Control.Exception         (Exception, throw)
-import           Control.Lens
-import           Control.Monad             (guard, join, (<=<), (>=>))
-import           Data.Bifunctor            (first, second)
-import           Data.Bool                 (bool)
-import           Data.Coerce               (Coercible, coerce)
-import           Data.Either               (fromRight, isRight)
-import           Data.Foldable             (fold, toList)
-import           Data.Function             (on)
-import           Data.Functor              (void, ($>))
-import           Data.List                 (foldl')
-import           Data.List.NonEmpty        (NonEmpty (..))
-import           Data.Maybe                (fromMaybe, isJust, isNothing)
-import qualified Data.Text                 as T
-import           Data.Text.Prettyprint.Doc
-import           Data.Traversable          (for)
-import           Data.Typeable             (Typeable)
-import           Data.Word                 (Word8)
-import           Debug.Trace
-import           GHC.Generics
-import           GHC.Natural               (Natural)
-import           Text.PrettyBy.Default
-import           Text.PrettyBy.Internal
-
-import           Data.Functor.Compose
+import Control.Applicative (Alternative (..))
+import Control.Arrow ((&&&))
+import Control.Composition ((.*))
+import Control.DeepSeq (NFData)
+import Control.Exception (Exception, throw)
+import Control.Lens
+import Control.Monad (guard, join, (<=<), (>=>))
+import Data.Bifunctor (first, second)
+import Data.Bool (bool)
+import Data.Coerce (Coercible, coerce)
+import Data.Either (fromRight, isRight)
+import Data.Foldable (fold, toList)
+import Data.Function (on)
+import Data.Functor (void, ($>))
+import Data.Functor.Compose
+import Data.List (foldl')
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe (fromMaybe, isJust, isNothing)
+import qualified Data.Text as T
+import Data.Text.Prettyprint.Doc
+import Data.Traversable (for)
+import Data.Typeable (Typeable)
+import Data.Word (Word8)
+import Debug.Trace
+import GHC.Generics
+import GHC.Natural (Natural)
+import Text.PrettyBy.Default
+import Text.PrettyBy.Internal
 
 infixr 2 ?
+
 infixl 4 <<$>>, <<*>>
 
 -- | A newtype wrapper around @a@ whose point is to provide a 'Show' instance
 -- for anything that has a 'Pretty' instance.
 newtype ShowPretty a = ShowPretty
-    { unShowPretty :: a
-    } deriving (Eq)
+  { unShowPretty :: a
+  }
+  deriving (Eq)
 
 instance Pretty a => Show (ShowPretty a) where
-    show = display . unShowPretty
+  show = display . unShowPretty
 
 instance (Pretty a, Pretty b) => Pretty (Either a b) where
-    pretty (Left  x) = parens ("Left"  <+> pretty x)
-    pretty (Right y) = parens ("Right" <+> pretty y)
+  pretty (Left x) = parens ("Left" <+> pretty x)
+  pretty (Right y) = parens ("Right" <+> pretty y)
 
 -- | Default pretty-printing for the __spine__ of 'Either' (elements are pretty-printed the way
 -- @PrettyBy config@ constraints specify it).
 instance (PrettyBy config a, PrettyBy config b) => DefaultPrettyBy config (Either a b)
 
 -- | An instance extending the set of types supporting default pretty-printing with 'Either'.
-deriving via PrettyCommon (Either a b)
-    instance PrettyDefaultBy config (Either a b) => PrettyBy config (Either a b)
+deriving via
+  PrettyCommon (Either a b)
+  instance
+    PrettyDefaultBy config (Either a b) => PrettyBy config (Either a b)
 
 (<<$>>) :: (Functor f1, Functor f2) => (a -> b) -> f1 (f2 a) -> f1 (f2 b)
 (<<$>>) f = getCompose . fmap f . Compose
@@ -151,7 +161,8 @@ mtraverse f a = join <$> traverse f a
 
 -- | Fold a monadic function over a 'Foldable'. The monadic version of 'foldMap'.
 foldMapM :: (Foldable f, Monad m, Monoid b) => (a -> m b) -> f a -> m b
-foldMapM f xs = foldr step return xs mempty where
+foldMapM f xs = foldr step return xs mempty
+  where
     step x r z = f x >>= \y -> r $! z `mappend` y
 
 -- | This function generalizes 'eitherToMaybe', 'eitherToList',
@@ -160,11 +171,11 @@ reoption :: (Foldable f, Alternative g) => f a -> g a
 reoption = foldr (const . pure) empty
 
 newtype PairT b f a = PairT
-    { unPairT :: f (b, a)
-    }
+  { unPairT :: f (b, a)
+  }
 
 instance Functor f => Functor (PairT b f) where
-    fmap f (PairT p) = PairT $ fmap (fmap f) p
+  fmap f (PairT p) = PairT $ fmap (fmap f) p
 
 -- | @b ? x@ is equal to @pure x@ whenever @b@ holds and is 'empty' otherwise.
 (?) :: Alternative f => Bool -> a -> f a
@@ -176,6 +187,7 @@ ensure p x = p x ? x
 
 -- For GHCi to use this properly it needs to be in a registered package, hence
 -- why we're naming such a trivial thing.
+
 -- | A command suitable for use in GHCi as an interactive printer.
 printPretty :: Pretty a => a -> IO ()
 printPretty = print . pretty

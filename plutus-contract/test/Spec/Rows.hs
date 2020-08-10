@@ -1,23 +1,24 @@
-{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE TypeOperators     #-}
-module Spec.Rows(tests) where
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
-import qualified Data.Aeson                                      as Aeson
-import           Test.Tasty
-import qualified Test.Tasty.HUnit                                as HUnit
+module Spec.Rows (tests) where
 
-import           Language.Plutus.Contract
-import           Language.Plutus.Contract.Effects.ExposeEndpoint as Endpoint
+import qualified Data.Aeson as Aeson
+import Language.Plutus.Contract
+import Language.Plutus.Contract.Effects.ExposeEndpoint as Endpoint
+import Test.Tasty
+import qualified Test.Tasty.HUnit as HUnit
 
 type TheSchema = Endpoint "endpoint1" Int .\/ Endpoint "endpoint2" String
 
 tests :: TestTree
-tests = testGroup "JSON instances"
-         [ HUnit.testCase "should round-trip" $ do
-            let e = Endpoint.event @"endpoint1" @_ @TheSchema 10
-                e' = Aeson.eitherDecode $ Aeson.encode e
-            HUnit.assertBool "round-trip failed" $ Right e == e'
-
-         ]
+tests =
+  testGroup
+    "JSON instances"
+    [ HUnit.testCase "should round-trip" $ do
+        let e = Endpoint.event @"endpoint1" @_ @TheSchema 10
+            e' = Aeson.eitherDecode $ Aeson.encode e
+        HUnit.assertBool "round-trip failed" $ Right e == e'
+    ]

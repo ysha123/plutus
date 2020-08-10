@@ -1,26 +1,26 @@
-{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE StrictData         #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE StrictData #-}
 
 module Plutus.SCB.Events.Node
-    ( NodeEvent(..)
-    ) where
+  ( NodeEvent (..),
+  )
+where
 
-import           Data.Aeson                (FromJSON, ToJSON)
-import           Data.Text.Prettyprint.Doc
-import           GHC.Generics              (Generic)
-
-import           Ledger                    (Tx)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Text.Prettyprint.Doc
+import GHC.Generics (Generic)
+import Ledger (Tx)
 
 newtype NodeEvent
-    = SubmittedTx Tx
-  -- ^ Confirmation that the transactions were received.
-  -- TODO: Rollbacks?
-  -- | Rollback Int -- ^ n blocks were rolled back
-    deriving (Show, Eq, Generic)
-    deriving newtype (FromJSON, ToJSON)
+  = -- | Confirmation that the transactions were received.
+    -- TODO: Rollbacks?
+    -- | Rollback Int -- ^ n blocks were rolled back
+    SubmittedTx Tx
+  deriving (Show, Eq, Generic)
+  deriving newtype (FromJSON, ToJSON)
 
 instance Pretty NodeEvent where
   pretty = \case

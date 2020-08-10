@@ -1,20 +1,16 @@
-{-# LANGUAGE ConstraintKinds  #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 -- | Convenient functions for compiling binders.
 module Language.PlutusTx.Compiler.Binders where
 
-import           Language.PlutusTx.Compiler.Names
-import           Language.PlutusTx.Compiler.Types
-import           Language.PlutusTx.PIRTypes
-
-import qualified GhcPlugins                       as GHC
-
-import qualified Language.PlutusIR                as PIR
-
-import           Control.Monad.Reader
-
-import           Data.Traversable
+import Control.Monad.Reader
+import Data.Traversable
+import qualified GhcPlugins as GHC
+import qualified Language.PlutusIR as PIR
+import Language.PlutusTx.Compiler.Names
+import Language.PlutusTx.Compiler.Types
+import Language.PlutusTx.PIRTypes
 
 -- Binder helpers
 
@@ -30,31 +26,31 @@ variable *last* (so it is on the outside, so will be first when applying).
 
 withVarScoped :: Compiling uni m => GHC.Var -> (PIR.VarDecl PIR.TyName PIR.Name uni () -> m a) -> m a
 withVarScoped v k = do
-    let ghcName = GHC.getName v
-    var <- compileVarFresh v
-    local (\c -> c {ccScopes=pushName ghcName var (ccScopes c)}) (k var)
+  let ghcName = GHC.getName v
+  var <- compileVarFresh v
+  local (\c -> c {ccScopes = pushName ghcName var (ccScopes c)}) (k var)
 
 withVarsScoped :: Compiling uni m => [GHC.Var] -> ([PIR.VarDecl PIR.TyName PIR.Name uni ()] -> m a) -> m a
 withVarsScoped vs k = do
-    vars <- for vs $ \v -> do
-        let name = GHC.getName v
-        var' <- compileVarFresh v
-        pure (name, var')
-    local (\c -> c {ccScopes=pushNames vars (ccScopes c)}) (k (fmap snd vars))
+  vars <- for vs $ \v -> do
+    let name = GHC.getName v
+    var' <- compileVarFresh v
+    pure (name, var')
+  local (\c -> c {ccScopes = pushNames vars (ccScopes c)}) (k (fmap snd vars))
 
 withTyVarScoped :: Compiling uni m => GHC.Var -> (PIR.TyVarDecl PIR.TyName () -> m a) -> m a
 withTyVarScoped v k = do
-    let ghcName = GHC.getName v
-    var <- compileTyVarFresh v
-    local (\c -> c {ccScopes=pushTyName ghcName var (ccScopes c)}) (k var)
+  let ghcName = GHC.getName v
+  var <- compileTyVarFresh v
+  local (\c -> c {ccScopes = pushTyName ghcName var (ccScopes c)}) (k var)
 
 withTyVarsScoped :: Compiling uni m => [GHC.Var] -> ([PIR.TyVarDecl PIR.TyName ()] -> m a) -> m a
 withTyVarsScoped vs k = do
-    vars <- for vs $ \v -> do
-        let name = GHC.getName v
-        var' <- compileTyVarFresh v
-        pure (name, var')
-    local (\c -> c {ccScopes=pushTyNames vars (ccScopes c)}) (k (fmap snd vars))
+  vars <- for vs $ \v -> do
+    let name = GHC.getName v
+    var' <- compileTyVarFresh v
+    pure (name, var')
+  local (\c -> c {ccScopes = pushTyNames vars (ccScopes c)}) (k (fmap snd vars))
 
 -- | Builds a lambda, binding the given variable to a name that
 -- will be in scope when running the second argument.

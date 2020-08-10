@@ -31,6 +31,7 @@ in haskell.packages.shellFor {
     dev.packages.cabal-install
     dev.packages.hlint
     dev.packages.stylish-haskell
+    dev.packages.ormolu
     dev.packages.haskell-language-server
     dev.packages.hie-bios
     dev.packages.purty

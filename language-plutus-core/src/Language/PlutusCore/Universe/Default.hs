@@ -1,21 +1,21 @@
--- | The universe used by default and its instances.
-
-{-# OPTIONS_GHC -fno-warn-orphans        #-}  -- The @Pretty ByteString@ instance.
-{-# OPTIONS_GHC -fno-warn-unused-matches #-}  -- Appears in generated instances.
-
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+-- The @Pretty ByteString@ instance.
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+-- Appears in generated instances.
+{-# OPTIONS_GHC -fno-warn-unused-matches #-}
 
+-- | The universe used by default and its instances.
 module Language.PlutusCore.Universe.Default
-    ( DefaultUni (..)
-    ) where
+  ( DefaultUni (..),
+  )
+where
 
-import           Language.PlutusCore.Universe.Core
-
-import qualified Data.ByteString.Lazy              as BSL
+import qualified Data.ByteString.Lazy as BSL
+import Language.PlutusCore.Universe.Core
 
 {- Note [PLC types and universes]
 We encode built-in types in PLC as tags for Haskell types (the latter are also called meta-types),
@@ -60,32 +60,40 @@ and have meta-constructors as builtin names. We still have to handle types someh
 
 -- | The universe used by default.
 data DefaultUni a where
-    DefaultUniInteger    :: DefaultUni Integer
-    DefaultUniByteString :: DefaultUni BSL.ByteString
-    DefaultUniString     :: DefaultUni String
-    DefaultUniChar       :: DefaultUni Char
-    DefaultUniUnit       :: DefaultUni ()
-    DefaultUniBool       :: DefaultUni Bool
+  DefaultUniInteger :: DefaultUni Integer
+  DefaultUniByteString :: DefaultUni BSL.ByteString
+  DefaultUniString :: DefaultUni String
+  DefaultUniChar :: DefaultUni Char
+  DefaultUniUnit :: DefaultUni ()
+  DefaultUniBool :: DefaultUni Bool
 
 deriveGEq ''DefaultUni
+
 deriving instance Lift (DefaultUni a)
+
 instance GLift DefaultUni
 
 instance GShow DefaultUni where gshowsPrec = showsPrec
-instance Show (DefaultUni a) where
-    show DefaultUniInteger    = "integer"
-    show DefaultUniByteString = "bytestring"
-    show DefaultUniString     = "string"
-    show DefaultUniChar       = "char"
-    show DefaultUniUnit       = "unit"
-    show DefaultUniBool       = "bool"
 
-instance DefaultUni `Includes` Integer         where knownUni = DefaultUniInteger
-instance DefaultUni `Includes` BSL.ByteString  where knownUni = DefaultUniByteString
+instance Show (DefaultUni a) where
+  show DefaultUniInteger = "integer"
+  show DefaultUniByteString = "bytestring"
+  show DefaultUniString = "string"
+  show DefaultUniChar = "char"
+  show DefaultUniUnit = "unit"
+  show DefaultUniBool = "bool"
+
+instance DefaultUni `Includes` Integer where knownUni = DefaultUniInteger
+
+instance DefaultUni `Includes` BSL.ByteString where knownUni = DefaultUniByteString
+
 instance a ~ Char => DefaultUni `Includes` [a] where knownUni = DefaultUniString
-instance DefaultUni `Includes` Char            where knownUni = DefaultUniChar
-instance DefaultUni `Includes` ()              where knownUni = DefaultUniUnit
-instance DefaultUni `Includes` Bool            where knownUni = DefaultUniBool
+
+instance DefaultUni `Includes` Char where knownUni = DefaultUniChar
+
+instance DefaultUni `Includes` () where knownUni = DefaultUniUnit
+
+instance DefaultUni `Includes` Bool where knownUni = DefaultUniBool
 
 {- Note [Stable encoding of tags]
 'tagOf' and 'uniAt' are used for serialisation and deserialisation of types from the universe and
@@ -96,35 +104,36 @@ See Note [Stable encoding of PLC]
 -}
 
 instance Closed DefaultUni where
-    type DefaultUni `Everywhere` constr =
-        ( constr Integer
-        , constr BSL.ByteString
-        , constr String
-        , constr Char
-        , constr ()
-        , constr Bool
-        )
+  type
+    DefaultUni `Everywhere` constr =
+      ( constr Integer,
+        constr BSL.ByteString,
+        constr String,
+        constr Char,
+        constr (),
+        constr Bool
+      )
 
-    -- See Note [Stable encoding of tags].
-    tagOf DefaultUniInteger    = 0
-    tagOf DefaultUniByteString = 1
-    tagOf DefaultUniString     = 2
-    tagOf DefaultUniChar       = 3
-    tagOf DefaultUniUnit       = 4
-    tagOf DefaultUniBool       = 5
+  -- See Note [Stable encoding of tags].
+  tagOf DefaultUniInteger = 0
+  tagOf DefaultUniByteString = 1
+  tagOf DefaultUniString = 2
+  tagOf DefaultUniChar = 3
+  tagOf DefaultUniUnit = 4
+  tagOf DefaultUniBool = 5
 
-    -- See Note [Stable encoding of tags].
-    uniAt 0 = Just . Some $ TypeIn DefaultUniInteger
-    uniAt 1 = Just . Some $ TypeIn DefaultUniByteString
-    uniAt 2 = Just . Some $ TypeIn DefaultUniString
-    uniAt 3 = Just . Some $ TypeIn DefaultUniChar
-    uniAt 4 = Just . Some $ TypeIn DefaultUniUnit
-    uniAt 5 = Just . Some $ TypeIn DefaultUniBool
-    uniAt _ = Nothing
+  -- See Note [Stable encoding of tags].
+  uniAt 0 = Just . Some $ TypeIn DefaultUniInteger
+  uniAt 1 = Just . Some $ TypeIn DefaultUniByteString
+  uniAt 2 = Just . Some $ TypeIn DefaultUniString
+  uniAt 3 = Just . Some $ TypeIn DefaultUniChar
+  uniAt 4 = Just . Some $ TypeIn DefaultUniUnit
+  uniAt 5 = Just . Some $ TypeIn DefaultUniBool
+  uniAt _ = Nothing
 
-    bring _ DefaultUniInteger    = id
-    bring _ DefaultUniByteString = id
-    bring _ DefaultUniString     = id
-    bring _ DefaultUniChar       = id
-    bring _ DefaultUniUnit       = id
-    bring _ DefaultUniBool       = id
+  bring _ DefaultUniInteger = id
+  bring _ DefaultUniByteString = id
+  bring _ DefaultUniString = id
+  bring _ DefaultUniChar = id
+  bring _ DefaultUniUnit = id
+  bring _ DefaultUniBool = id

@@ -1,20 +1,20 @@
--- | @unit@ and related functions.
-
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications  #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
+-- | @unit@ and related functions.
 module Language.PlutusCore.StdLib.Data.Unit
-    ( unit
-    , unitval
-    , sequ
-    ) where
+  ( unit,
+    unitval,
+    sequ,
+  )
+where
 
-import           Language.PlutusCore.Core
-import           Language.PlutusCore.MkPlc
-import           Language.PlutusCore.Name
-import           Language.PlutusCore.Universe
-import           Language.PlutusCore.Quote
+import Language.PlutusCore.Core
+import Language.PlutusCore.MkPlc
+import Language.PlutusCore.Name
+import Language.PlutusCore.Quote
+import Language.PlutusCore.Universe
 
 -- | '()' as a PLC type.
 unit :: uni `Includes` () => Type TyName uni ()
@@ -27,9 +27,9 @@ unitval = mkConstant () ()
 -- | 'seq' specified to '()' as a PLC term.
 sequ :: (TermLike term TyName Name uni, uni `Includes` ()) => term ()
 sequ = runQuote $ do
-    x <- freshName "x"
-    y <- freshName "y"
-    return
-        . lamAbs () x unit
-        . lamAbs () y unit
-        $ unitval
+  x <- freshName "x"
+  y <- freshName "y"
+  return
+    . lamAbs () x unit
+    . lamAbs () y unit
+    $ unitval

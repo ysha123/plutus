@@ -20,6 +20,13 @@
     # Invalidate and update if you change the version or index-state
     plan-sha256 = "0vdv4jjabblfn41nxpjgsyvy3yrgd4k2p0s39hhbifllga2ngzds";
   };
+  ormolu = pkgs.haskell-nix.hackage-package {
+    name = "ormolu";
+    version = "0.1.2.0";
+    inherit index-state checkMaterialization;
+    # Invalidate and update if you change the version or index-state
+    plan-sha256 = "1rc5hl0dsl5dy0jqjlxmc7x3f108dlmw5vm9gq1zcxzrf9ygy1cz";
+  };
   hlint = pkgs.haskell-nix.hackage-package {
     name = "hlint";
     version = "2.2.11";

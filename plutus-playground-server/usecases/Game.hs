@@ -1,19 +1,19 @@
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE DeriveAnyClass             #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE DerivingStrategies         #-}
-{-# LANGUAGE ExplicitNamespaces         #-}
-{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE NamedFieldPuns             #-}
-{-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TupleSections              #-}
-{-# LANGUAGE TypeApplications           #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeOperators              #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
 
 module Game where
@@ -25,43 +25,51 @@ module Game where
 -- Player 2 guesses the word by attempting to spend the transaction
 -- output. If the guess is correct, the validator script releases the funds.
 -- If it isn't, the funds stay locked.
-import           Control.Monad               (void)
-import qualified Data.ByteString.Lazy.Char8  as C
+import Control.Monad (void)
+import qualified Data.ByteString.Lazy.Char8 as C
 import Language.Plutus.Contract
-import qualified Language.PlutusTx           as PlutusTx
-import           Language.PlutusTx.Prelude   hiding (pure, (<$>))
-import           Ledger                      (Address, ValidatorCtx,
-                                              Validator, Value, scriptAddress)
+import qualified Language.PlutusTx as PlutusTx
+import Language.PlutusTx.Prelude hiding (pure, (<$>))
+import Ledger
+  ( Address,
+    Validator,
+    ValidatorCtx,
+    Value,
+    scriptAddress,
+  )
 import qualified Ledger.Constraints as Constraints
 import qualified Ledger.Typed.Scripts as Scripts
-import           Playground.Contract
+import Playground.Contract
 import qualified Prelude
 
 ------------------------------------------------------------
 
-newtype HashedString = HashedString ByteString deriving newtype PlutusTx.IsData
+newtype HashedString = HashedString ByteString deriving newtype (PlutusTx.IsData)
 
 PlutusTx.makeLift ''HashedString
 
-newtype ClearString = ClearString ByteString deriving newtype PlutusTx.IsData
+newtype ClearString = ClearString ByteString deriving newtype (PlutusTx.IsData)
 
 PlutusTx.makeLift ''ClearString
 
 type GameSchema =
-    BlockchainActions
-        .\/ Endpoint "lock" LockParams
-        .\/ Endpoint "guess" GuessParams
+  BlockchainActions
+    .\/ Endpoint "lock" LockParams
+    .\/ Endpoint "guess" GuessParams
 
 data Game
+
 instance Scripts.ScriptType Game where
-    type instance RedeemerType Game = ClearString
-    type instance DatumType Game = HashedString
+  type RedeemerType Game = ClearString
+  type DatumType Game = HashedString
 
 gameInstance :: Scripts.ScriptInstance Game
-gameInstance = Scripts.validator @Game
-    $$(PlutusTx.compile [|| validateGuess ||])
-    $$(PlutusTx.compile [|| wrap ||]) where
-        wrap = Scripts.wrapValidator @HashedString @ClearString
+gameInstance =
+  Scripts.validator @Game
+    $$(PlutusTx.compile [||validateGuess||])
+    $$(PlutusTx.compile [||wrap||])
+  where
+    wrap = Scripts.wrapValidator @HashedString @ClearString
 
 -- create a data script for the guessing game by hashing the string
 -- and lifting the hash to its on-chain representation
@@ -87,34 +95,34 @@ gameAddress = Ledger.scriptAddress gameValidator
 
 -- | Parameters for the "lock" endpoint
 data LockParams = LockParams
-    { secretWord :: String
-    , amount     :: Value
-    }
-    deriving stock (Prelude.Eq, Prelude.Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
+  { secretWord :: String,
+    amount :: Value
+  }
+  deriving stock (Prelude.Eq, Prelude.Show, Generic)
+  deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
 
 --  | Parameters for the "guess" endpoint
 newtype GuessParams = GuessParams
-    { guessWord :: String
-    }
-    deriving stock (Prelude.Eq, Prelude.Show, Generic)
-    deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
+  { guessWord :: String
+  }
+  deriving stock (Prelude.Eq, Prelude.Show, Generic)
+  deriving anyclass (FromJSON, ToJSON, IotsType, ToSchema, ToArgument)
 
 -- | The "lock" contract endpoint. See note [Contract endpoints]
 lock :: AsContractError e => Contract GameSchema e ()
 lock = do
-    LockParams secret amt <- endpoint @"lock" @LockParams
-    let tx         = Constraints.mustPayToTheScript (hashString secret) amt
-    void (submitTxConstraints gameInstance tx)
+  LockParams secret amt <- endpoint @"lock" @LockParams
+  let tx = Constraints.mustPayToTheScript (hashString secret) amt
+  void (submitTxConstraints gameInstance tx)
 
 -- | The "guess" contract endpoint. See note [Contract endpoints]
 guess :: AsContractError e => Contract GameSchema e ()
 guess = do
-    GuessParams theGuess <- endpoint @"guess" @GuessParams
-    unspentOutputs <- utxoAt gameAddress
-    let redeemer = clearString theGuess
-        tx       = collectFromScript unspentOutputs redeemer
-    void (submitTxConstraintsSpending gameInstance unspentOutputs tx)
+  GuessParams theGuess <- endpoint @"guess" @GuessParams
+  unspentOutputs <- utxoAt gameAddress
+  let redeemer = clearString theGuess
+      tx = collectFromScript unspentOutputs redeemer
+  void (submitTxConstraintsSpending gameInstance unspentOutputs tx)
 
 game :: AsContractError e => Contract GameSchema e ()
 game = lock `select` guess
@@ -151,5 +159,6 @@ endpoints = game
 mkSchemaDefinitions ''GameSchema
 
 myCurrency :: KnownCurrency
-myCurrency = KnownCurrency "b0b0" "MyCurrency" ( "USDToken" :| ["EURToken"])
+myCurrency = KnownCurrency "b0b0" "MyCurrency" ("USDToken" :| ["EURToken"])
+
 $(mkKnownCurrencies ['myCurrency])

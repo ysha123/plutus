@@ -1,33 +1,31 @@
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Language.PlutusTx.Lift.Instances () where
 
-import qualified Language.PlutusCore          as PLC
-
-import           Language.PlutusTx.Builtins
-import           Language.PlutusTx.Lift.Class
-
-import           Language.PlutusIR
-import           Language.PlutusIR.MkPir
-
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Proxy
+import Data.Proxy
+import qualified Language.PlutusCore as PLC
+import Language.PlutusIR
+import Language.PlutusIR.MkPir
+import Language.PlutusTx.Builtins
+import Language.PlutusTx.Lift.Class
 
 -- Derived instances
 
 -- This instance ensures that we can apply typeable type constructors to typeable arguments and get a typeable
 -- type. We need the kind variable, so that partial application of type constructors works.
 instance (Typeable uni (f :: * -> k), Typeable uni (a :: *)) => Typeable uni (f a) where
-    typeRep _ = TyApp () <$> typeRep (undefined :: Proxy f) <*> typeRep (undefined :: Proxy a)
+  typeRep _ = TyApp () <$> typeRep (undefined :: Proxy f) <*> typeRep (undefined :: Proxy a)
 
 {- Note [Typeable instances for function types]
 Surely there is an obvious 'Typeable' instance for 'a -> b': we just turn it directly
@@ -42,36 +40,40 @@ silly thing to write, but it does work.
 -}
 -- See Note [Typeable instances for function types]
 instance Typeable uni (->) where
-    typeRep _ = do
-        a <- PLC.liftQuote $ PLC.freshTyName "a"
-        b <- PLC.liftQuote $ PLC.freshTyName "b"
-        let tvda = TyVarDecl () a (Type ())
-            tvdb = TyVarDecl () b (Type ())
-        pure $ mkIterTyLam [tvda, tvdb] $ TyFun () (mkTyVar () tvda) (mkTyVar () tvdb)
+  typeRep _ = do
+    a <- PLC.liftQuote $ PLC.freshTyName "a"
+    b <- PLC.liftQuote $ PLC.freshTyName "b"
+    let tvda = TyVarDecl () a (Type ())
+        tvdb = TyVarDecl () b (Type ())
+    pure $ mkIterTyLam [tvda, tvdb] $ TyFun () (mkTyVar () tvda) (mkTyVar () tvdb)
 
 -- Primitives
 
-typeRepBuiltin
-    :: forall a uni. uni `PLC.Includes` a
-    => Proxy a -> RTCompile uni (Type TyName uni ())
+typeRepBuiltin ::
+  forall a uni.
+  uni `PLC.Includes` a =>
+  Proxy a ->
+  RTCompile uni (Type TyName uni ())
 typeRepBuiltin (_ :: Proxy a) = pure $ mkTyBuiltin @a ()
 
-liftBuiltin
-    :: forall a uni. uni `PLC.Includes` a
-    => a -> RTCompile uni (Term TyName Name uni ())
+liftBuiltin ::
+  forall a uni.
+  uni `PLC.Includes` a =>
+  a ->
+  RTCompile uni (Term TyName Name uni ())
 liftBuiltin = pure . mkConstant ()
 
 instance uni `PLC.Includes` Integer => Typeable uni Integer where
-    typeRep = typeRepBuiltin
+  typeRep = typeRepBuiltin
 
 instance uni `PLC.Includes` Integer => Lift uni Integer where
-    lift = liftBuiltin
+  lift = liftBuiltin
 
 instance uni `PLC.Includes` BSL.ByteString => Typeable uni BSL.ByteString where
-    typeRep = typeRepBuiltin
+  typeRep = typeRepBuiltin
 
 instance uni `PLC.Includes` BSL.ByteString => Lift uni BSL.ByteString where
-    lift = liftBuiltin
+  lift = liftBuiltin
 
 -- Standard types
 -- These need to be in a separate file for TH staging reasons
@@ -82,6 +84,7 @@ makeLift ''Maybe
 makeLift ''Either
 makeLift ''[]
 makeLift ''()
+
 -- include a few tuple instances for convenience
 makeLift ''(,)
 makeLift ''(,,)

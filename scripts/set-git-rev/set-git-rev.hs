@@ -1,18 +1,18 @@
-{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main where
 
-import           Control.DeepSeq        (force)
-import           Control.Exception      (ErrorCall (..), handle)
-import           Control.Exception.Base (evaluate)
-import           Control.Monad.IO.Class (liftIO)
-import           Data.ByteString        (ByteString)
-import qualified Data.ByteString.Char8  as B8
-import           Data.FileEmbed         (injectWith)
-import           Data.List              (isInfixOf)
-import           System.Environment     (getArgs)
-import           System.Exit            (die, exitFailure, exitSuccess)
+import Control.DeepSeq (force)
+import Control.Exception (ErrorCall (..), handle)
+import Control.Exception.Base (evaluate)
+import Control.Monad.IO.Class (liftIO)
+import Data.ByteString (ByteString)
+import qualified Data.ByteString.Char8 as B8
+import Data.FileEmbed (injectWith)
+import Data.List (isInfixOf)
+import System.Environment (getArgs)
+import System.Exit (die, exitFailure, exitSuccess)
 
 main :: IO ()
 main = do
@@ -32,9 +32,9 @@ setGitRev hash prog = do
       B8.putStrLn $ "Failed setting gitrev to \"" <> hash <> "\""
       exitFailure
     Left msg | "Size is: \"\"" `isInfixOf` msg -> do
-                 -- Ignore programs without a gitrev injected
-                 B8.putStrLn "File does not have dummySpace."
-                 exitSuccess
+      -- Ignore programs without a gitrev injected
+      B8.putStrLn "File does not have dummySpace."
+      exitSuccess
     Left msg -> do
       putStrLn msg
       exitFailure
@@ -45,11 +45,12 @@ injectWith' postfix toInj orig = handle (pure . toLeft) (toRight <$> evaluateNF 
   where
     inj = injectWith postfix toInj orig
     toRight (Just a) = Right a
-    toRight Nothing  = Left ""
+    toRight Nothing = Left ""
     toLeft (ErrorCall msg) = Left msg
     evaluateNF = liftIO . evaluate . force
 
 parseArgs :: IO (ByteString, [FilePath])
-parseArgs = getArgs >>= \case
-  (rev:prog:progs) -> pure (B8.pack rev, (prog:progs))
-  _ -> die "usage: set-git-rev REV PROG [PROGS...]" >> exitFailure
+parseArgs =
+  getArgs >>= \case
+    (rev : prog : progs) -> pure (B8.pack rev, (prog : progs))
+    _ -> die "usage: set-git-rev REV PROG [PROGS...]" >> exitFailure
