@@ -47,10 +47,11 @@ import           Ledger                     (SlotRange, TxInfo, CurrencySymbol, 
 import           Ledger.Ada                 (adaSymbol, adaValueOf)
 import           Ledger.AddressMap                 (outRefMap)
 import           Ledger.Interval
-import           Language.Plutus.Contract.StateMachine (AsSMContractError, StateMachine (..), Void)
+import           Language.Plutus.Contract.StateMachine (AsSMContractError, StateMachine (..), Void, getOnChainState)
 import qualified Language.Plutus.Contract.StateMachine as SM
 import           Ledger.Scripts             (Redeemer (..), Validator)
 import qualified Ledger.Typed.Scripts       as Scripts
+import           Ledger.Typed.Tx                               (TypedScriptTxOut (..))
 import Ledger.Constraints
 import Ledger.Constraints.TxConstraints
 import qualified Ledger.Value               as Val
@@ -61,6 +62,7 @@ type MarloweSchema =
         .\/ Endpoint "create" (MarloweParams, Marlowe.Contract)
         .\/ Endpoint "apply-inputs" (MarloweParams, [Input])
         .\/ Endpoint "sub" MarloweParams
+        .\/ Endpoint "wait" MarloweParams
 
 data MarloweError =
     StateMachineError (SM.SMContractError MarloweData [Input])
@@ -89,14 +91,21 @@ marloweContract2 = do
         (params, cont) <- endpoint @"create" @(MarloweParams, Marlowe.Contract) @MarloweSchema
         -- traceM $ "Here cont " <> show cont
         createContract params cont
-        apply
+        apply `select` wait
+    wait = do
+        params <- endpoint @"wait" @MarloweParams @MarloweSchema
+        (TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef) <- SM.waitForUpdate (client params)
+        traceM $ (show currentState)
     sub = do
         params <- endpoint @"sub" @MarloweParams @MarloweSchema
         let inst = scriptInstance params
             address = (Scripts.scriptAddress inst)
-        txs <- nextTransactionsAt address
-        traceM $ (show txs)
-        void apply
+        ((TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef), utxo) <- getOnChainState (client params)
+        -- traceM $ (show utxo)
+        traceM $ (show currentState)
+        -- txs <- nextTransactionsAt address
+        -- traceM $ (show txs)
+        apply `select` wait
     apply = do
         -- traceM "Here apply"
         (params, inputs) <- endpoint @"apply-inputs" @(MarloweParams, [Input]) @MarloweSchema
@@ -104,7 +113,7 @@ marloweContract2 = do
         MarloweData{..}  <- applyInputs params inputs
         case marloweContract of
             Close -> pure ()
-            _ -> void apply
+            _ -> apply `select` wait
 
 
 {-| Create a Marlowe contract.
