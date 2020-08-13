@@ -124,6 +124,18 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     notifyInterestingAddresses alice
     notifyInterestingAddresses bob
 
+    callEndpoint @"wait" alice (params)
+
+    handleBlockchainEvents alice
+    handleBlockchainEvents bob
+    addBlocks 1
+    notifySlot alice
+    notifySlot bob
+    handleBlockchainEvents alice
+    handleBlockchainEvents bob
+    notifyInterestingAddresses alice
+    notifyInterestingAddresses bob
+
 
 w1, w2 :: Wallet
 w1 = Wallet 1
