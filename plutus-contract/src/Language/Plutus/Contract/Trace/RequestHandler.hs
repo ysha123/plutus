@@ -173,7 +173,7 @@ handleNextTxAtQueries = RequestHandler $ \req ->
         current <- Wallet.Effects.walletSlot
         let target = acreqSlot req
         logDebug $ HandleNextTxAt current target
-        guard (current >= target)
+        guard (current > target)
         Wallet.Effects.nextTx req
 
 -- | Maximum number of times request handlers are run before waiting for more

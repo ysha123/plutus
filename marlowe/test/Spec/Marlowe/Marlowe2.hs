@@ -113,6 +113,7 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     notifyInterestingAddresses bob
 
     callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
+    callEndpoint @"wait" alice (params)
 
     handleBlockchainEvents alice
     handleBlockchainEvents bob
@@ -124,7 +125,7 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     notifyInterestingAddresses alice
     notifyInterestingAddresses bob
 
-    callEndpoint @"wait" alice (params)
+    -- callEndpoint @"wait" alice (params)
 
     handleBlockchainEvents alice
     handleBlockchainEvents bob
