@@ -91,7 +91,6 @@ module Language.PlutusCore.Evaluation.Machine.ExBudgeting
     , ModelOneArgument(..)
     , ModelTwoArguments(..)
     , ModelThreeArguments(..)
-    , estimateStaticStagedCost
     , exBudgetCPU
     , exBudgetMemory
     , exBudgetStateBudget
@@ -149,9 +148,7 @@ class ToExMemory term => SpendBudget m term | m -> term where
     -- 1. do nothing for an evaluator that does not care about costing
     -- 2. count upwards to get the cost of a computation
     -- 3. subtract from the current budget and fail if the budget goes below zero
-    --
-    -- The @term@ argument is only used for reporting an error.
-    spendBudget :: ExBudgetCategory -> term -> ExBudget -> m ()
+    spendBudget :: ExBudgetCategory -> ExBudget -> m ()
 
 data ExBudgetCategory
     = BTyInst
@@ -159,7 +156,7 @@ data ExBudgetCategory
     | BIWrap
     | BUnwrap
     | BVar
-    | BBuiltin StagedBuiltinName
+    | BBuiltin BuiltinName
     | BAST
     deriving stock (Show, Eq, Generic)
     deriving anyclass NFData
@@ -199,11 +196,6 @@ instance PrettyDefaultBy config Integer => PrettyBy config ExTally where
     prettyBy config (ExTally m) =
         parens $ fold (["{ "] <> (intersperse (line <> "| ") $ fmap group $
           ifoldMap (\k v -> [(prettyBy config k <+> "causes" <+> prettyBy config v)]) m) <> ["}"])
-
--- TODO See language-plutus-core/docs/Constant application.md for how to properly implement this
-estimateStaticStagedCost
-    :: BuiltinName -> [WithMemory Value uni] -> (ExCPU, ExMemory)
-estimateStaticStagedCost _ _ = (1, 1)
 
 type CostModel = CostModelBase CostingFun
 

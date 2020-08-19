@@ -1,7 +1,7 @@
 module Monaco where
 
 import Prelude
-import Data.Function.Uncurried (Fn1, runFn1)
+import Data.Function.Uncurried (Fn1, Fn2, Fn5, runFn1, runFn2, runFn5)
 import Data.Generic.Rep (class Generic)
 import Data.Lens (Lens')
 import Data.Lens.Iso.Newtype (_Newtype)
@@ -13,8 +13,8 @@ import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple)
 import Effect (Effect)
 import Effect.Uncurried (EffectFn1, EffectFn2, EffectFn3, EffectFn4, runEffectFn1, runEffectFn2, runEffectFn3, runEffectFn4)
-import Foreign (unsafeToForeign)
-import Foreign.Generic (class Encode, Foreign, SumEncoding(..), defaultOptions, encode, genericEncode)
+import Foreign (unsafeFromForeign, unsafeToForeign)
+import Foreign.Generic (class Decode, class Encode, Foreign, SumEncoding(..), defaultOptions, encode, genericEncode)
 import Foreign.Object (Object)
 import Foreign.Object as Object
 import Web.HTML (HTMLElement)
@@ -107,11 +107,33 @@ foreign import data ITextModel :: Type
 
 foreign import data CompletionItemKind :: Type
 
+foreign import completionItemKindEq_ :: Fn2 CompletionItemKind CompletionItemKind Boolean
+
+instance eqCompletionItemKind :: Eq CompletionItemKind where
+  eq = runFn2 completionItemKindEq_
+
+foreign import completionItemKindOrd_ :: Fn5 Ordering Ordering Ordering CompletionItemKind CompletionItemKind Ordering
+
+instance ordCompletionItemKind :: Ord CompletionItemKind where
+  compare = runFn5 completionItemKindOrd_ LT EQ GT
+
 foreign import data MarkerSeverity :: Type
+
+instance encodeMarkerSeverity :: Encode MarkerSeverity where
+  encode = encode <<< unsafeToForeign
+
+instance decodeMarkerSeverity :: Decode MarkerSeverity where
+  decode = pure <<< unsafeFromForeign
 
 foreign import data TokensProvider :: Type
 
 foreign import data Uri :: Type
+
+instance encodeUri :: Encode Uri where
+  encode = encode <<< unsafeToForeign
+
+instance decodeUri :: Decode Uri where
+  decode = pure <<< unsafeFromForeign
 
 type IMarkdownString
   = { value :: String

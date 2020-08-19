@@ -134,6 +134,7 @@
           "Language/PlutusCore/TypeCheck"
           "Language/PlutusCore/Analysis/Definitions"
           "Language/PlutusCore/Examples/Data/InterList"
+          "Language/PlutusCore/Examples/Data/Shad"
           "Language/PlutusCore/Examples/Data/TreeForest"
           "Language/PlutusCore/Examples/Data/Vec"
           "Language/PlutusCore/Generators/Internal/Denotation"
@@ -151,6 +152,10 @@
           "Language/PlutusIR/Compiler/Recursion"
           "Language/PlutusIR/Compiler/Types"
           "Language/PlutusIR/Compiler/Lower"
+          "Language/UntypedPlutusCore/Core"
+          "Language/UntypedPlutusCore/Core/Instance"
+          "Language/UntypedPlutusCore/Core/Instance/Eq"
+          "Language/UntypedPlutusCore/Core/Type"
           "Data/Aeson/THReader"
           "Data/Functor/Foldable/Monadic"
           "Language/PlutusCore"
@@ -211,13 +216,14 @@
           "Language/PlutusIR/Generators/AST"
           "Language/PlutusIR/Parser"
           "Language/PlutusIR/MkPir"
-          "Language/PlutusIR/Value"
+          "Language/PlutusIR/Purity"
           "Language/PlutusIR/Optimizer/DeadCode"
           "Language/PlutusIR/Transform/Substitute"
           "Language/PlutusIR/Transform/ThunkRecursions"
           "Language/PlutusIR/Transform/Rename"
           "Language/PlutusIR/Transform/NonStrict"
           "Language/PlutusIR/Transform/LetFloat"
+          "Language/UntypedPlutusCore"
           "PlutusPrelude"
           "Common"
           "Data/ByteString/Lazy/Hash"
@@ -233,6 +239,7 @@
           "generators"
           "common"
           "plutus-ir"
+          "untyped-plutus-core"
           ];
         };
       exes = {
@@ -332,6 +339,21 @@
           buildable = true;
           modules = [ "OptimizerSpec" "TransformSpec" "ParserSpec" "TestLib" ];
           hsSourceDirs = [ "plutus-ir-test" ];
+          mainPath = [ "Spec.hs" ];
+          };
+        "untyped-plutus-core-test" = {
+          depends = [
+            (hsPkgs."base" or (errorHandler.buildDepError "base"))
+            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
+            (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
+            (hsPkgs."language-plutus-core" or (errorHandler.buildDepError "language-plutus-core"))
+            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
+            (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
+            (hsPkgs."tasty-hedgehog" or (errorHandler.buildDepError "tasty-hedgehog"))
+            ];
+          buildable = true;
+          modules = [ "Evaluation/ApplyBuiltinName" ];
+          hsSourceDirs = [ "untyped-plutus-core-test" ];
           mainPath = [ "Spec.hs" ];
           };
         "language-plutus-core-test-cost-model" = {

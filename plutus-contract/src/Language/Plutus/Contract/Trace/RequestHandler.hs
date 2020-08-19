@@ -23,6 +23,9 @@ module Language.Plutus.Contract.Trace.RequestHandler(
     , handleUtxoQueries
     , handleTxConfirmedQueries
     , handleNextTxAtQueries
+    -- * Misc. types
+    , MaxIterations(..)
+    , defaultMaxIterations
     ) where
 
 import           Control.Applicative                               (Alternative (empty))
@@ -39,6 +42,7 @@ import qualified Data.Map                                          as Map
 import           Data.Monoid                                       (Alt (..), Ap (..))
 import           Data.Text                                         (Text)
 import qualified Ledger.AddressMap                                 as AM
+import           Numeric.Natural                                   (Natural)
 
 import           Language.Plutus.Contract.Resumable                (Request (..), Response (..))
 
@@ -159,12 +163,24 @@ handleTxConfirmedQueries = RequestHandler $ \txid ->
 handleNextTxAtQueries ::
     forall effs.
     ( Member (LogObserve (LogMessage Text)) effs
+    , Member (LogMsg RequestHandlerLogMsg) effs
     , Member WalletEffect effs
     , Member ChainIndexEffect effs
     )
     => RequestHandler effs AddressChangeRequest AddressChangeResponse
 handleNextTxAtQueries = RequestHandler $ \req ->
     surroundDebug @Text "handleNextTxAtQueries" $ do
-        sl <- Wallet.Effects.walletSlot
-        guard (sl >= acreqSlot req)
+        current <- Wallet.Effects.walletSlot
+        let target = acreqSlot req
+        logDebug $ HandleNextTxAt current target
+        guard (current >= target)
         Wallet.Effects.nextTx req
+
+-- | Maximum number of times request handlers are run before waiting for more
+--   blockchain events
+newtype MaxIterations = MaxIterations Natural
+    deriving (Eq, Ord, Show)
+
+-- | The default for 'MaxIterations' is twenty.
+defaultMaxIterations :: MaxIterations
+defaultMaxIterations = MaxIterations 20

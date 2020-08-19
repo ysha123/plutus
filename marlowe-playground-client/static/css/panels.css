@@ -166,12 +166,7 @@
   padding: 0 0.1rem;
 }
 
-.transaction-composer .participants {
-  display: flex;
-  flex-flow: wrap;
-}
-
-.input-composer ul li ul {
+.transaction-composer ul li ul {
   display: flex;
 }
 
@@ -423,6 +418,11 @@ button.minus-btn:hover {
   margin: 1rem 0;
 }
 
+
+#actusBlocklyWorkspace>button {
+  margin: 1rem 0;
+}
+
 .analyse-btn {
   margin: 1rem 0rem 4rem 0rem;
 }
@@ -476,7 +476,7 @@ button.minus-btn:hover {
   transform: rotateX(180deg);
 }
 
-.wallet-contents .code {
+.code {
   height: auto;
   min-height: 100px;
   white-space: pre;
@@ -484,19 +484,19 @@ button.minus-btn:hover {
   padding-bottom: 3rem;
 }
 
-.wallet-contents .code code {
+.code code {
   display: block;
 }
 
-.wallet-contents .code:before {
+.code:before {
   counter-reset: listing;
 }
 
-.wallet-contents .code code {
+.code code {
   counter-increment: listing;
 }
 
-.wallet-contents .code code::before {
+.code code::before {
   content: counter(listing);
   display: inline-block;
   margin-right: 1rem;

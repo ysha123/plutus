@@ -20,7 +20,7 @@ module Language.PlutusCore.TypeCheck.Internal
     , inferKindM
     , checkKindM
     , checkKindOfPatternFunctorM
-    , typeOfBuiltinName
+    , typeOfStaticBuiltinName
     , inferTypeM
     , checkTypeM
     ) where
@@ -77,9 +77,7 @@ We use unified contexts in rules, i.e. a context can carry type variables as wel
 
 The "NORM a" notation reads as "normalize 'a'".
 
-The "a ~>? b" notations reads as "optionally normalize 'a' to 'b'". The "optionally" part is
-due to the fact that we allow non-normalized types during development, but do not allow to submit
-them on a chain.
+The "a ~> b" notations reads as "normalize 'a' to 'b'".
 
 Functions that can fail start with either @infer@ or @check@ prefixes,
 functions that cannot fail looks like this:
@@ -282,39 +280,48 @@ checkKindOfPatternFunctorM ann pat k =
 -- ###################
 
 -- | Return the 'Type' of a 'BuiltinName'.
-typeOfBuiltinName
+typeOfStaticBuiltinName
     :: (GShow uni, GEq uni, DefaultUni <: uni)
-    => BuiltinName -> Type TyName uni ()
-typeOfBuiltinName bn = withTypedBuiltinName bn $ typeOfTypedBuiltinName @(Term TyName Name _ ())
+    => StaticBuiltinName -> Type TyName uni ()
+typeOfStaticBuiltinName bn = withTypedStaticBuiltinName bn $ typeOfTypedStaticBuiltinName @(Term TyName Name _ ())
 
--- | @unfoldFixOf pat arg k = NORM (vPat (\(a :: k) -> ifix vPat a) arg)@
-unfoldFixOf
+-- | @unfoldIFixOf pat arg k = NORM (vPat (\(a :: k) -> ifix vPat a) arg)@
+unfoldIFixOf
     :: Normalized (Type TyName uni ())  -- ^ @vPat@
     -> Normalized (Type TyName uni ())  -- ^ @vArg@
     -> Kind ()                          -- ^ @k@
     -> TypeCheckM uni ann (Normalized (Type TyName uni ()))
-unfoldFixOf pat arg k = do
+unfoldIFixOf pat arg k = do
     let vPat = unNormalized pat
         vArg = unNormalized arg
     a <- liftQuote $ freshTyName "a"
+    -- We need to rename @vPat@, otherwise it would be used twice below, which would break global
+    -- uniqueness. Alternatively, we could use 'normalizeType' instead of 'normalizeTypeM' as the
+    -- former performs renaming before doing normalization, but renaming the entire type implicitly
+    -- would be less efficient than renaming a subpart of the type explicitly.
+    --
+    -- Note however that breaking global uniqueness here most likely would not result in buggy
+    -- behavior, see https://github.com/input-output-hk/plutus/pull/2219#issuecomment-672815272
+    -- But breaking global uniqueness is a bad idea regardless.
+    vPat' <- rename vPat
     normalizeTypeM $
-        mkIterTyApp () vPat
+        mkIterTyApp () vPat'
             [ TyLam () a k . TyIFix () vPat $ TyVar () a
             , vArg
             ]
 
--- | Infer the type of a 'Builtin'.
-inferTypeOfBuiltinM
+-- | Infer the type of a 'Builtin'.  The annotation is required for the error message if the name isn't found.
+inferTypeOfBuiltinNameM
     :: (GShow uni, GEq uni, DefaultUni <: uni)
-    => Builtin ann -> TypeCheckM uni ann (Normalized (Type TyName uni ()))
+    => ann -> BuiltinName -> TypeCheckM uni ann (Normalized (Type TyName uni ()))
 -- We have a weird corner case here: the type of a 'BuiltinName' can contain 'TypedBuiltinDyn', i.e.
 -- a static built-in name is allowed to depend on a dynamic built-in type which are not required
 -- to be normalized. For dynamic built-in names we store a map from them to their *normalized types*,
 -- with the normalization happening in this module, but what should we do for static built-in names?
 -- Right now we just renormalize the type of a static built-in name each time we encounter that name.
-inferTypeOfBuiltinM (BuiltinName    _   name) = normalizeType $ typeOfBuiltinName name
+inferTypeOfBuiltinNameM _ (StaticBuiltinName name) = normalizeType $ typeOfStaticBuiltinName name
 -- TODO: inline this definition once we have only dynamic built-in names.
-inferTypeOfBuiltinM (DynBuiltinName ann name) = lookupDynamicBuiltinNameM ann name
+inferTypeOfBuiltinNameM ann (DynBuiltinName name)  = lookupDynamicBuiltinNameM ann name
 
 -- See the [Global uniqueness] and [Type rules] notes.
 -- | Synthesize the type of a term, returning a normalized type.
@@ -332,17 +339,17 @@ inferTypeM (Constant _ (Some (ValueOf uni _))) =
 -- [infer| G !- bi : vTy]
 -- ------------------------------
 -- [infer| G !- builtin bi : vTy]
-inferTypeM (Builtin _ bi)           =
-    inferTypeOfBuiltinM bi
+inferTypeM (Builtin ann bn)         =
+    inferTypeOfBuiltinNameM ann bn
 
--- [infer| G !- v : ty]    ty ~>? vTy
--- ----------------------------------
+-- [infer| G !- v : ty]    ty ~> vTy
+-- ---------------------------------
 -- [infer| G !- var v : vTy]
 inferTypeM (Var ann name)           =
     lookupVarM ann name
 
--- [check| G !- dom :: *]    dom ~>? vDom    [infer| G , n : dom !- body : vCod]
--- -----------------------------------------------------------------------------
+-- [check| G !- dom :: *]    dom ~> vDom    [infer| G , n : dom !- body : vCod]
+-- ----------------------------------------------------------------------------
 -- [infer| G !- lam n dom body : vDom -> vCod]
 inferTypeM (LamAbs ann n dom body)  = do
     checkKindM ann dom $ Type ()
@@ -368,8 +375,8 @@ inferTypeM (Apply ann fun arg)      = do
             pure $ Normalized vCod
         _ -> throwError (TypeMismatch ann (void fun) (TyFun () dummyType dummyType) vFunTy)
 
--- [infer| G !- body : all (n :: nK) vCod]    [check| G !- ty :: tyK]    ty ~>? vTy
--- --------------------------------------------------------------------------------
+-- [infer| G !- body : all (n :: nK) vCod]    [check| G !- ty :: tyK]    ty ~> vTy
+-- -------------------------------------------------------------------------------
 -- [infer| G !- body {ty} : NORM ([vTy / n] vCod)]
 inferTypeM (TyInst ann body ty)     = do
     vBodyTy <- inferTypeM body
@@ -380,16 +387,16 @@ inferTypeM (TyInst ann body ty)     = do
             substNormalizeTypeM vTy n vCod
         _ -> throwError (TypeMismatch ann (void body) (TyForall () dummyTyName dummyKind dummyType) vBodyTy)
 
--- [infer| G !- arg :: k]    [check| G !- pat :: (k -> *) -> k -> *]    pat ~>? vPat    arg ~>? vArg
+-- [infer| G !- arg :: k]    [check| G !- pat :: (k -> *) -> k -> *]    pat ~> vPat    arg ~> vArg
 -- [check| G !- term : NORM (vPat (\(a :: k) -> ifix vPat a) vArg)]
--- -------------------------------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------------------------
 -- [infer| G !- iwrap pat arg term : ifix vPat vArg]
 inferTypeM (IWrap ann pat arg term) = do
     k <- inferKindM arg
     checkKindOfPatternFunctorM ann pat k
     vPat <- normalizeTypeM $ void pat
     vArg <- normalizeTypeM $ void arg
-    checkTypeM ann term =<< unfoldFixOf vPat vArg k
+    checkTypeM ann term =<< unfoldIFixOf vPat vArg k
     pure $ TyIFix () <$> vPat <*> vArg
 
 -- [infer| G !- term : ifix vPat vArg]    [infer| G !- vArg :: k]
@@ -401,11 +408,11 @@ inferTypeM (Unwrap ann term)        = do
         TyIFix _ vPat vArg -> do
             k <- inferKindM $ ann <$ vArg
             -- Subparts of a normalized type, so normalized.
-            unfoldFixOf (Normalized vPat) (Normalized vArg) k
+            unfoldIFixOf (Normalized vPat) (Normalized vArg) k
         _                  -> throwError (TypeMismatch ann (void term) (TyIFix () dummyType dummyType) vTermTy)
 
--- [check| G !- ty :: *]    ty ~>? vTy
--- -----------------------------------
+-- [check| G !- ty :: *]    ty ~> vTy
+-- ----------------------------------
 -- [infer| G !- error ty : vTy]
 inferTypeM (Error ann ty)           = do
     checkKindM ann ty $ Type ()
