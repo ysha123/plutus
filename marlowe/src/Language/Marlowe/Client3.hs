@@ -21,41 +21,26 @@
 {-# OPTIONS_GHC -fno-specialise #-}
 
 module Language.Marlowe.Client3 where
-import           Control.Monad              (Monad (..), void)
-import           Control.Monad.Error.Class  (MonadError (..))
-import           Control.Monad.Error.Lens   (throwing)
-import           Data.Text.Prettyprint.Doc  hiding ((<>))
+import           Control.Monad              (void)
 import           Control.Lens
--- import           Data.Map                   (Map)
--- import qualified Data.Map                   as Map
-import           Data.Maybe                 (maybeToList)
-import qualified Data.Set                   as Set
-import qualified Data.Text                  as Text
 import           Language.PlutusTx.AssocMap (Map)
 import qualified Language.PlutusTx.AssocMap as Map
 import           Language.Plutus.Contract
-import qualified Language.Plutus.Contract.Tx  as Tx
 import           Language.Marlowe.Semantics hiding (Contract)
 import qualified Language.PlutusCore.Universe          as PLC
 import qualified Language.Marlowe.Semantics as Marlowe
 import qualified Language.PlutusTx          as PlutusTx
 import qualified Language.PlutusTx.Prelude  as P
-import           Ledger                     (SlotRange, TxInfo, CurrencySymbol, ValidatorCtx(..),TokenName, Address(..),Datum (..), PubKeyHash (..), pubKeyHash, Slot (..), Tx, TxOut (..), TxOutRef(..), TxOutTx (..), interval,
-
-                                             mkValidatorScript, pubKeyHashTxOut, scriptAddress, scriptTxIn, scriptTxOut, validatorHash, txOutDatum, txOutTxDatum,
-                                             txOutRefs, scriptTxOut', valueSpent, pubKeyAddress)
+import           Ledger                     (SlotRange, CurrencySymbol, ValidatorCtx(..), TokenName, Datum (..), pubKeyHash, Slot (..), mkValidatorScript, validatorHash, valueSpent)
 import           Ledger.Ada                 (adaSymbol, adaValueOf)
-import           Ledger.AddressMap                 (outRefMap)
 import           Ledger.Interval
 import           Language.Plutus.Contract.StateMachine (AsSMContractError, StateMachine (..), Void, getOnChainState)
 import qualified Language.Plutus.Contract.StateMachine as SM
-import           Ledger.Scripts             (Redeemer (..), Validator)
+import           Ledger.Scripts             (Validator)
 import qualified Ledger.Typed.Scripts       as Scripts
 import           Ledger.Typed.Tx                               (TypedScriptTxOut (..))
 import Ledger.Constraints
-import Ledger.Constraints.TxConstraints
 import qualified Ledger.Value               as Val
-import Debug.Trace
 
 type MarloweSchema =
     BlockchainActions
@@ -83,8 +68,7 @@ marloweContract2 :: forall e. (AsContractError e
     )
     => Contract MarloweSchema e ()
 marloweContract2 = do
-    -- create `select` apply {- <|> void sub -}
-    create `select` sub `select` wait
+    create `select` wait
   where
     create = do
         -- traceM "Here create"
@@ -96,25 +80,24 @@ marloweContract2 = do
         params <- endpoint @"wait" @MarloweParams @MarloweSchema
         r <- SM.waitForUpdate (client params)
         case r of
-            Just (TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef) -> do
-                traceM $ (show currentState)
+            Just (TypedScriptTxOut{tyTxOutData=_currentState}, _txOutRef) -> do
+                -- traceM $ (show currentState)
                 apply `select` wait
-            Nothing -> pure ()
-
-    sub = do
+            Nothing -> pure () -- the contract is closed, no UTxO
+    _sub = do
         params <- endpoint @"sub" @MarloweParams @MarloweSchema
-        let inst = scriptInstance params
-            address = (Scripts.scriptAddress inst)
-        ((TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef), utxo) <- getOnChainState (client params)
+        -- let inst = scriptInstance params
+            -- address = (Scripts.scriptAddress inst)
+        ((TypedScriptTxOut{tyTxOutData=_currentState}, _txOutRef), _utxo) <- getOnChainState (client params)
         -- traceM $ (show utxo)
-        traceM $ (show currentState)
+        -- traceM $ (show currentState)
         -- txs <- nextTransactionsAt address
         -- traceM $ (show txs)
         apply `select` wait
     apply = do
         -- traceM "Here apply"
         (params, inputs) <- endpoint @"apply-inputs" @(MarloweParams, [Input]) @MarloweSchema
-        traceM $ "Here endpoint " <> show inputs
+        -- traceM $ "Here endpoint " <> show inputs
         MarloweData{..}  <- applyInputs params inputs
         case marloweContract of
             Close -> pure ()
@@ -130,15 +113,11 @@ createContract :: (AsContractError e, AsSMContractError e MarloweData [Input])
     -> Contract MarloweSchema e ()
 createContract params contract = do
     slot <- awaitSlot 0
-    creator <- pubKeyHash <$> ownPubKey
+    _creator <- pubKeyHash <$> ownPubKey
     -- traceM $ "createContract: " <> show slot <> " " <> show creator
-    let
-        inst = scriptInstance params
-
-        marloweData = MarloweData {
+    let marloweData = MarloweData {
             marloweContract = contract,
             marloweState = emptyState slot }
-        ds = Datum $ PlutusTx.toData marloweData
 
     let payValue = adaValueOf 0
     let theClient = client params
@@ -154,12 +133,10 @@ applyInputs params inputs = do
     (Slot slot) <- awaitSlot 1
     -- let slot = Slot 0
     let slotRange = interval (Slot $ slot - 1)  (Slot $ slot + 10)
-    traceM $ "slotRange: " <> show slotRange
-    let inst = scriptInstance params
-        address = (Scripts.scriptAddress inst) -- scriptAddress validator
+    -- traceM $ "slotRange: " <> show slotRange
     let theClient = client params
     dat <- SM.runStep theClient inputs slotRange
-    traceM $ "[applyInputs] After runStep " <> show (marloweContract dat) <> " ==> " <>  show (isFinal dat)
+    -- traceM $ "[applyInputs] After runStep " <> show (marloweContract dat) <> " ==> " <>  show (isFinal dat)
     return dat
 
 
@@ -219,10 +196,6 @@ transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptIn
             txInputs = inputs }
 
     let computedResult = computeTransaction txInput marloweState marloweContract
-    -- traceM $ "Here6 " <> show computedResult
-    -- traceM $ "Here6 " <> show txInput
-    -- traceM $ "Here6" <> show marloweContract
-    -- traceM $ "Here6" <> show marloweState
     case computedResult of
         TransactionOutput {txOutPayments, txOutState, txOutContract} -> do
 
@@ -237,9 +210,10 @@ transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptIn
                         totalPayouts = foldMap (\(Payment _ v) -> v) txOutPayments
                         finalBalance = totalIncome P.- totalPayouts
                         in (txWithPayouts, finalBalance)
-            if preconditionsOk then Just (inputsConstraints <> deducedTxOutputs, SM.State marloweData finalBalance)
+            if preconditionsOk
+            then Just (inputsConstraints <> deducedTxOutputs, SM.State marloweData finalBalance)
             else Nothing
-        Error txError -> Nothing
+        Error _ -> Nothing
 
   where
     validateInputWitness :: CurrencySymbol -> Input -> TxConstraints Void Void
@@ -255,9 +229,11 @@ transition params SM.State{ SM.stateData=MarloweData{..}, SM.stateValue=scriptIn
     validateInputs :: MarloweParams -> [Input] -> TxConstraints Void Void
     validateInputs MarloweParams{..} = foldMap (validateInputWitness rolesCurrency)
 
+    collectDeposits :: Input -> Val.Value
     collectDeposits (IDeposit _ _ (Token cur tok) amount) = Val.singleton cur tok amount
     collectDeposits _                    = P.zero
 
+    totalIncome :: Val.Value
     totalIncome = foldMap collectDeposits inputs
 
     txPaymentOuts :: [Payment] -> TxConstraints i0 o0

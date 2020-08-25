@@ -17,14 +17,10 @@ import           Test.Tasty
 import           Language.Marlowe.Semantics
 import           Language.Marlowe.Util
 import           Language.Marlowe.Client3
-import           Language.Plutus.Contract hiding (Contract)
 import           Language.Plutus.Contract.Test
-import qualified Language.Plutus.Contract.Effects.OwnPubKey        as OwnPubKey
-import qualified Wallet.Emulator.Wallet                            as EM
 import           Language.PlutusTx.Lattice
 import           Ledger
 import           Ledger.Ada                 (adaValueOf)
-import Debug.Trace
 
 
 tests :: TestTree
@@ -36,43 +32,19 @@ tests = testGroup "token account"
         )
         (  callEndpoint @"create" w1 (defaultMarloweParams, Close)
            >> handleBlockchainEvents w1 )
-    ,  -}zeroCouponBondTest1
+    ,  -}zeroCouponBondTest
     ]
+
+
 
 zeroCouponBondTest :: TestTree
 zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
     (assertNoFailedTransactions
-    /\ assertDone w1 (const True) "contract should close"
-    /\ walletFundsChange alice (adaValueOf (-850))
-    /\ walletFundsChange bob (adaValueOf (850))
-    ) $ do
-    -- Init a contract
-    let alicePk = PK $ (pubKeyHash $ walletPubKey alice)
-        aliceAcc = AccountId 0 alicePk
-        bobPk = PK $ (pubKeyHash $ walletPubKey bob)
-
-    let params = defaultMarloweParams
-
-    let zeroCouponBond = When [ Case
-            (Deposit aliceAcc alicePk ada (Constant 850_000_000))
-            (Pay aliceAcc (Party bobPk) ada (Constant 850_000_000)
-                Close)] (Slot 100) Close
-    callEndpoint @"create" alice (params, zeroCouponBond)
-    notifySlot alice
-    handleBlockchainEvents alice
-    callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
-    notifySlot alice
-    handleBlockchainEvents alice
-
-
-zeroCouponBondTest1 :: TestTree
-zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
-    (assertNoFailedTransactions
     -- /\ emulatorLog (const False) ""
-    /\ assertDone w1 (const True) "contract should close"
-    /\ assertDone w2 (const True) "contract should close"
-    /\ walletFundsChange bob (adaValueOf (-150))
+    /\ assertDone alice (const True) "contract should close"
+    /\ assertDone bob (const True) "contract should close"
     /\ walletFundsChange alice (adaValueOf (150))
+    /\ walletFundsChange bob (adaValueOf (-150))
     ) $ do
     -- Init a contract
     let alicePk = PK $ (pubKeyHash $ walletPubKey alice)
@@ -91,20 +63,15 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
 
     addBlocks 1
     notifySlot alice
-    -- notifySlot bob
     handleBlockchainEvents alice
-    -- handleBlockchainEvents bob
     notifyInterestingAddresses alice
-    -- notifyInterestingAddresses bob
     addBlocks 1
     handleBlockchainEvents alice
 
-    callEndpoint @"sub" bob (params)
+    callEndpoint @"wait" bob (params)
     handleBlockchainEvents bob
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
-    traceM "AAAA"
-    traceM "BBBB"
     handleBlockchainEvents alice
     addBlocks 1
     handleBlockchainEvents alice
