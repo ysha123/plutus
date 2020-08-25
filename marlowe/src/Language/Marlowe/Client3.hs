@@ -84,7 +84,7 @@ marloweContract2 :: forall e. (AsContractError e
     => Contract MarloweSchema e ()
 marloweContract2 = do
     -- create `select` apply {- <|> void sub -}
-    (create `select` sub)
+    create `select` sub `select` wait
   where
     create = do
         -- traceM "Here create"
@@ -114,7 +114,7 @@ marloweContract2 = do
     apply = do
         -- traceM "Here apply"
         (params, inputs) <- endpoint @"apply-inputs" @(MarloweParams, [Input]) @MarloweSchema
-        -- traceM $ "Here endpoint " <> show inputs
+        traceM $ "Here endpoint " <> show inputs
         MarloweData{..}  <- applyInputs params inputs
         case marloweContract of
             Close -> pure ()
@@ -159,7 +159,7 @@ applyInputs params inputs = do
         address = (Scripts.scriptAddress inst) -- scriptAddress validator
     let theClient = client params
     dat <- SM.runStep theClient inputs slotRange
-    -- traceM $ "AAAA " <> show (marloweContract dat) <> " ==> " <>  show (isFinal1 dat)
+    traceM $ "[applyInputs] After runStep " <> show (marloweContract dat) <> " ==> " <>  show (isFinal dat)
     return dat
 
 

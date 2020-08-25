@@ -24,6 +24,7 @@ import qualified Wallet.Emulator.Wallet                            as EM
 import           Language.PlutusTx.Lattice
 import           Ledger
 import           Ledger.Ada                 (adaValueOf)
+import Debug.Trace
 
 
 tests :: TestTree
@@ -67,11 +68,11 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
 zeroCouponBondTest1 :: TestTree
 zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweContract2
     (assertNoFailedTransactions
-    /\ emulatorLog (const False) ""
+    -- /\ emulatorLog (const False) ""
     /\ assertDone w1 (const True) "contract should close"
     /\ assertDone w2 (const True) "contract should close"
-    -- /\ walletFundsChange bob (adaValueOf (-150))
-    -- /\ walletFundsChange alice (adaValueOf (-850))
+    /\ walletFundsChange bob (adaValueOf (-150))
+    /\ walletFundsChange alice (adaValueOf (150))
     ) $ do
     -- Init a contract
     let alicePk = PK $ (pubKeyHash $ walletPubKey alice)
@@ -102,12 +103,14 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     handleBlockchainEvents bob
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
-    callEndpoint @"wait" alice (params)
-
+    traceM "AAAA"
+    traceM "BBBB"
     handleBlockchainEvents alice
     addBlocks 1
     handleBlockchainEvents alice
     notifySlot alice
+    callEndpoint @"wait" alice (params)
+    handleBlockchainEvents alice
     notifySlot bob
     handleBlockchainEvents bob
     notifyInterestingAddresses alice
