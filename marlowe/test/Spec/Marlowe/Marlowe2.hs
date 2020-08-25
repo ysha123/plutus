@@ -25,14 +25,7 @@ import           Ledger.Ada                 (adaValueOf)
 
 tests :: TestTree
 tests = testGroup "token account"
-    [ {- checkPredicate @MarloweSchema @ContractError "Create a Marlowe Contract" marloweContract2
-        (assertNoFailedTransactions
-        /\ assertNotDone w1 "contract should not have any errors"
-        -- /\ walletFundsChange w1 (Ada.adaValueOf (-1))
-        )
-        (  callEndpoint @"create" w1 (defaultMarloweParams, Close)
-           >> handleBlockchainEvents w1 )
-    ,  -}zeroCouponBondTest
+    [ zeroCouponBondTest
     ]
 
 
@@ -60,11 +53,7 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
                     [ Case (Deposit aliceAcc bobPk ada (Constant 1000_000_000)) Close] (Slot 200) Close
                 ))] (Slot 100) Close
     callEndpoint @"create" alice (params, zeroCouponBond)
-
-    addBlocks 1
-    notifySlot alice
     handleBlockchainEvents alice
-    notifyInterestingAddresses alice
     addBlocks 1
     handleBlockchainEvents alice
 
@@ -75,41 +64,19 @@ zeroCouponBondTest = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweCo
     handleBlockchainEvents alice
     addBlocks 1
     handleBlockchainEvents alice
-    notifySlot alice
+
     callEndpoint @"wait" alice (params)
-    handleBlockchainEvents alice
-    notifySlot bob
+
     handleBlockchainEvents bob
-    notifyInterestingAddresses alice
-    notifyInterestingAddresses bob
 
     callEndpoint @"apply-inputs" bob (params, [IDeposit aliceAcc bobPk ada 1000_000_000])
 
     handleBlockchainEvents alice
     handleBlockchainEvents bob
     addBlocks 1
-    notifySlot alice
-    notifySlot bob
     handleBlockchainEvents alice
     handleBlockchainEvents bob
-    notifyInterestingAddresses alice
-    notifyInterestingAddresses bob
 
-
-    handleBlockchainEvents alice
-    handleBlockchainEvents bob
-    addBlocks 1
-    notifySlot alice
-    notifySlot bob
-    handleBlockchainEvents alice
-    handleBlockchainEvents bob
-    notifyInterestingAddresses alice
-    notifyInterestingAddresses bob
-
-
-w1, w2 :: Wallet
-w1 = Wallet 1
-w2 = Wallet 2
 
 alice, bob, carol :: Wallet
 alice = Wallet 1
