@@ -43,7 +43,7 @@ library
     plutus-tx -any,
     plutus-contract -any,
     plutus-ledger,
-    language-plutus-core,
+    plutus-core,
     plutus-contract,
     prettyprinter,
     text,

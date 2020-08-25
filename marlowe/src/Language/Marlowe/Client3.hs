@@ -94,8 +94,13 @@ marloweContract2 = do
         apply `select` wait
     wait = do
         params <- endpoint @"wait" @MarloweParams @MarloweSchema
-        (TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef) <- SM.waitForUpdate (client params)
-        traceM $ (show currentState)
+        r <- SM.waitForUpdate (client params)
+        case r of
+            Just (TypedScriptTxOut{tyTxOutData=currentState, tyTxOutTxOut}, txOutRef) -> do
+                traceM $ (show currentState)
+                apply `select` wait
+            Nothing -> pure ()
+
     sub = do
         params <- endpoint @"sub" @MarloweParams @MarloweSchema
         let inst = scriptInstance params

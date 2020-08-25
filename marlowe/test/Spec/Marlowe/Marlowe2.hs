@@ -69,7 +69,7 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     (assertNoFailedTransactions
     /\ emulatorLog (const False) ""
     /\ assertDone w1 (const True) "contract should close"
-    -- /\ assertDone w2 (const True) "contract should close"
+    /\ assertDone w2 (const True) "contract should close"
     -- /\ walletFundsChange bob (adaValueOf (-150))
     -- /\ walletFundsChange alice (adaValueOf (-850))
     ) $ do
@@ -102,6 +102,7 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     handleBlockchainEvents bob
 
     callEndpoint @"apply-inputs" alice (params, [IDeposit aliceAcc alicePk ada 850_000_000])
+    callEndpoint @"wait" alice (params)
 
     handleBlockchainEvents alice
     addBlocks 1
@@ -124,7 +125,6 @@ zeroCouponBondTest1 = checkPredicate @MarloweSchema @MarloweError "ZCB" marloweC
     notifyInterestingAddresses alice
     notifyInterestingAddresses bob
 
-    callEndpoint @"wait" alice (params)
 
     handleBlockchainEvents alice
     handleBlockchainEvents bob
