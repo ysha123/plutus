@@ -63,6 +63,7 @@ tests = testGroup "PRISM"
     [ checkPredicate "withdraw"
         contract
         (assertDone user (const True) ""
+        /\ emulatorLog (const False) ""
         /\ walletFundsChange issuer (Ada.lovelaceValueOf numTokens)
         /\ walletFundsChange user (Ada.lovelaceValueOf (negate numTokens) <> STO.coins stoData numTokens)
         )

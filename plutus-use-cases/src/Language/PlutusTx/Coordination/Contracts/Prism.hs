@@ -110,6 +110,7 @@ contract ::
     Contract PrismSchema PrismError ()
 contract = do
     r <- mapError EPError $ endpoint @"role"
+    logInfo r
     case r of
         CredMan        -> mapError CredManErr credentialManager
         Mirror         -> mapError MirrorErr mirror
