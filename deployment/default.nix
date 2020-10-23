@@ -155,6 +155,7 @@ let
   envs = {
     david = mkEnv "david" "eu-west-1";
     kris = mkEnv "kris" "eu-west-1";
+    patrick = mkEnv "patrick" "eu-north-1";
     alpha = mkEnv "alpha" "eu-west-2";
     pablo = mkEnv "pablo" "eu-west-3";
     wyohack = mkEnv "wyohack" "us-west-2";
