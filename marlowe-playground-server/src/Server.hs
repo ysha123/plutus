@@ -15,22 +15,22 @@ import           API                                              (API)
 import qualified Auth
 import           Auth.Types                                       (OAuthClientId (OAuthClientId),
                                                                    OAuthClientSecret (OAuthClientSecret))
-import           Data.Aeson
-import           Data.String
-import qualified Data.HashMap.Strict as HM
 import           Control.Monad.Except                             (ExceptT)
 import           Control.Monad.IO.Class                           (MonadIO, liftIO)
 import           Control.Monad.Logger                             (LoggingT, MonadLogger, logInfoN, runStderrLoggingT)
 import           Control.Monad.Reader                             (ReaderT, runReaderT)
+import           Data.Aeson
 import           Data.Aeson                                       (ToJSON, eitherDecode, encode)
+import qualified Data.HashMap.Strict                              as HM
 import           Data.Proxy                                       (Proxy (Proxy))
+import           Data.String
 import           Data.Text                                        (Text)
 import qualified Data.Text                                        as Text
 import           Git                                              (gitRev)
 import           Language.Marlowe.ACTUS.Definitions.ContractTerms (ContractTerms)
 import           Language.Marlowe.ACTUS.Generator                 (genFsContract, genStaticContract)
 import           Language.Marlowe.Pretty                          (pretty)
-import           Network.HTTP.Simple (httpJSON, getResponseBody)
+import           Network.HTTP.Simple                              (getResponseBody, httpJSON)
 import           Network.Wai.Middleware.Cors                      (cors, corsRequestHeaders, simpleCorsResourcePolicy)
 import           Servant                                          ((:<|>) ((:<|>)), (:>), Application,
                                                                    Handler (Handler), Server, ServerError, hoistServer,
@@ -53,7 +53,7 @@ oracle exchange pair = do
     let (Number price) = case result of
             Object obj -> case HM.findWithDefault (Object HM.empty) "result" obj of
                 Object obj -> HM.findWithDefault zero "price" obj
-                _ -> zero
+                _          -> zero
             _ -> zero
     let normalized = round (price * 100000000) :: Integer
     pure (object [ "price" .= (Number $ fromInteger normalized) ])
