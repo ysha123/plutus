@@ -1,8 +1,13 @@
 module Simulation where
 
+import Data.HTTP.Method as HTTP
+import Foreign.Class as F
 import Control.Alternative (map, void, when, (<|>))
+import Control.Monad.Error.Class (class MonadError)
 import Control.Monad.Except (ExceptT, runExceptT)
 import Control.Monad.Reader (runReaderT)
+import Affjax (defaultRequest)
+import Effect.Console (log)
 import Data.Array (delete, filter, intercalate, snoc, sortWith)
 import Data.Array as Array
 import Data.BigInteger (BigInteger, fromString, fromInt)
@@ -39,6 +44,7 @@ import Halogen.Monaco (monacoComponent)
 import Help (HelpContext(..), toHTML)
 import LocalStorage as LocalStorage
 import MainFrame.Types (ChildSlots, _marloweEditorSlot)
+import Math (floor)
 import Marlowe (SPParams_)
 import Marlowe as Server
 import Marlowe.Linter as Linter
@@ -54,10 +60,10 @@ import Network.RemoteData as RemoteData
 import Prelude (class Show, Unit, Void, bind, bottom, const, discard, eq, flip, identity, mempty, otherwise, pure, show, unit, zero, ($), (-), (/=), (<), (<$>), (<<<), (<>), (=<<), (==), (>), (>=))
 import Projects.Types (Lang(..))
 import Reachability (startReachabilityAnalysis)
-import Servant.PureScript.Ajax (AjaxError)
-import Servant.PureScript.Settings (SPSettings_)
+import Servant.PureScript.Ajax (AjaxError, ajax, errorToString)
+import Servant.PureScript.Settings (SPSettings_, _decodeJson, _encodeJson, _params)
 import Simulation.BottomPanel (bottomPanel)
-import Simulation.State (ActionInput(..), ActionInputId, _editorErrors, _editorWarnings, _executionState, _moveToAction, _pendingInputs, _possibleActions, _slot, _state, applyInput, emptyExecutionStateWithSlot, emptyMarloweState, hasHistory, mapPartiesActionInput, moveToSignificantSlot, moveToSlot, nextSignificantSlot, otherActionsParty, updateContractInState, updateMarloweState)
+import Simulation.State (ActionInput(..), ActionInputId(..), Parties(..), _editorErrors, _editorWarnings, _executionState, _moveToAction, _pendingInputs, _possibleActions, _slot, _state, applyInput, emptyExecutionStateWithSlot, emptyMarloweState, hasHistory, mapPartiesActionInput, moveToSignificantSlot, moveToSlot, nextSignificantSlot, otherActionsParty, updateContractInState, updateMarloweState)
 import Simulation.Types (Action(..), AnalysisState(..), State, WebData, _activeDemo, _analysisState, _bottomPanelView, _currentContract, _currentMarloweState, _editorKeybindings, _helpContext, _marloweState, _oldContract, _selectedHole, _showBottomPanel, _showErrorDetail, _showRightPanel, _source, isContractValid)
 import StaticData (marloweBufferLocalStorageKey)
 import StaticData as StaticData
@@ -75,14 +81,16 @@ handleAction ::
   MonadEffect m =>
   MonadAff m =>
   SPSettings_ SPParams_ -> Action -> HalogenM State Action ChildSlots Void m Unit
-handleAction settings Init = editorSetTheme
+handleAction settings Init = do
+  editorSetTheme
+  setOraclePrice settings
 
-handleAction _ (HandleEditorMessage (Monaco.TextChanged "")) = do
+handleAction settings (HandleEditorMessage (Monaco.TextChanged "")) = do
   assign _marloweState $ NEL.singleton emptyMarloweState
   assign _oldContract Nothing
   updateContractInState ""
 
-handleAction _ (HandleEditorMessage (Monaco.TextChanged text)) = do
+handleAction settings (HandleEditorMessage (Monaco.TextChanged text)) = do
   assign _selectedHole Nothing
   liftEffect $ LocalStorage.setItem marloweBufferLocalStorageKey text
   updateContractInState text
@@ -101,11 +109,12 @@ handleAction _ (HandleEditorMessage (Monaco.TextChanged text)) = do
 
 handleAction _ (HandleDragEvent event) = liftEffect $ FileEvents.preventDefault event
 
-handleAction _ (HandleDropEvent event) = do
+handleAction settings (HandleDropEvent event) = do
   liftEffect $ FileEvents.preventDefault event
   contents <- liftAff $ readFileFromDragEvent event
   void $ editorSetValue contents
   updateContractInState contents
+  setOraclePrice settings
 
 handleAction _ (MoveToPosition lineNumber column) = do
   void $ query _marloweEditorSlot unit (Monaco.SetPosition { column, lineNumber } unit)
@@ -114,7 +123,7 @@ handleAction _ (SelectEditorKeyBindings bindings) = do
   assign _editorKeybindings bindings
   void $ query _marloweEditorSlot unit (Monaco.SetKeyBindings bindings unit)
 
-handleAction _ (LoadScript key) = do
+handleAction settings (LoadScript key) = do
   for_ (preview (ix key) StaticData.marloweContracts) \contents -> do
     let
       prettyContents = case parseContract contents of
@@ -125,16 +134,19 @@ handleAction _ (LoadScript key) = do
     updateContractInState prettyContents
     resetContract
     assign _activeDemo key
+    setOraclePrice settings
 
-handleAction _ (SetEditorText contents) = do
+handleAction settings (SetEditorText contents) = do
   editorSetValue contents
   updateContractInState contents
+  setOraclePrice settings
 
-handleAction _ StartSimulation = do
+handleAction settings StartSimulation = do
   assign (_currentMarloweState <<< _executionState) (Just $ emptyExecutionStateWithSlot zero)
   moveToSlot zero
+  setOraclePrice settings
 
-handleAction _ (MoveSlot slot) = do
+handleAction settings (MoveSlot slot) = do
   maybeExecutionState <- use (_currentMarloweState <<< _executionState)
   let
     slotGTcurrentSlot = maybe false (\x -> slot > (x ^. _slot)) maybeExecutionState
@@ -147,30 +159,38 @@ handleAction _ (MoveSlot slot) = do
       moveToSlot slot
     mCurrContract <- use _currentContract
     case mCurrContract of
-      Just currContract -> editorSetValue (show $ genericPretty currContract)
+      Just currContract -> do
+        editorSetValue (show $ genericPretty currContract)
+        setOraclePrice settings
       Nothing -> pure unit
 
-handleAction _ (SetSlot slot) = assign (_currentMarloweState <<< _executionState <<< _Just <<< _possibleActions <<< _moveToAction) (Just $ MoveToSlot slot)
+handleAction settings (SetSlot slot) = do
+  assign (_currentMarloweState <<< _executionState <<< _Just <<< _possibleActions <<< _moveToAction) (Just $ MoveToSlot slot)
+  setOraclePrice settings
 
-handleAction _ (AddInput input bounds) = do
+handleAction settings (AddInput input bounds) = do
   when validInput do
     saveInitialState
     applyInput ((flip snoc) input)
     mCurrContract <- use _currentContract
     case mCurrContract of
-      Just currContract -> editorSetValue (show $ genericPretty currContract)
+      Just currContract -> do
+        editorSetValue (show $ genericPretty currContract)
+        setOraclePrice settings
       Nothing -> pure unit
   where
   validInput = case input of
     (IChoice _ chosenNum) -> inBounds chosenNum bounds
     _ -> true
 
-handleAction _ (RemoveInput input) = do
+handleAction settings (RemoveInput input) = do
   updateMarloweState (over (_executionState <<< _Just <<< _pendingInputs) (delete input))
   currContract <- editorGetValue
   case currContract of
     Nothing -> pure unit
-    Just contract -> updateContractInState contract
+    Just contract -> do
+      updateContractInState contract
+      setOraclePrice settings
 
 handleAction _ (SetChoice choiceId chosenNum) = updateMarloweState (over (_executionState <<< _Just <<< _possibleActions) (mapPartiesActionInput (updateChoice choiceId)))
   where
@@ -180,21 +200,26 @@ handleAction _ (SetChoice choiceId chosenNum) = updateMarloweState (over (_execu
 
   updateChoice _ input = input
 
-handleAction _ ResetSimulator = do
+handleAction settings ResetSimulator = do
   oldContract <- use _oldContract
   currContract <- editorGetValue
   let
     newContract = fromMaybe mempty $ oldContract <|> currContract
   editorSetValue newContract
   resetContract
+  setOraclePrice settings
 
-handleAction _ ResetContract = resetContract
+handleAction settings ResetContract = do
+  resetContract
+  setOraclePrice settings
 
-handleAction _ Undo = do
+handleAction settings Undo = do
   modifying _marloweState tailIfNotEmpty
   mCurrContract <- use _currentContract
   case mCurrContract of
-    Just currContract -> editorSetValue (show $ genericPretty currContract)
+    Just currContract -> do
+      editorSetValue (show $ genericPretty currContract)
+      setOraclePrice settings
     Nothing -> pure unit
 
 handleAction _ (SelectHole hole) = assign _selectedHole hole
@@ -250,6 +275,79 @@ handleAction settings AnalyseReachabilityContract = do
       assign _analysisState (ReachabilityAnalysis newReachabilityAnalysisState)
 
 handleAction _ Save = pure unit
+
+setOraclePrice ::
+  forall m.
+  MonadAff m =>
+  SPSettings_ SPParams_ -> HalogenM State Action ChildSlots Void m Unit
+setOraclePrice settings = do
+  exState <- use (_currentMarloweState <<< _executionState)
+  case exState of
+    Just es -> do
+      let
+        (Parties actions) = es.possibleActions
+      case Map.lookup (Role "kraken") actions of
+        Just acts -> do
+          case Array.head (Map.toUnfoldable acts) of
+            Just (Tuple (ChoiceInputId choiceId@(ChoiceId pair _) bounds) _) -> do
+              price <- getPrice settings "kraken" pair
+              liftEffect $ log ("setting choice " <> show choiceId <> " with price " <> show price)
+              handleAction settings (SetChoice choiceId price)
+            _ -> pure unit
+        Nothing -> pure unit
+    Nothing -> pure unit
+
+getPrice :: forall m. MonadAff m => SPSettings_ SPParams_ -> String -> String -> HalogenM State Action ChildSlots Void m BigInteger
+getPrice settings exchange pair = do
+  result <- runAjax (getPriceAjax settings exchange pair)
+  a <-
+    liftEffect case result of
+      NotAsked -> do
+        log "NotAsked"
+        pure 0.0
+      Loading -> do
+        log "Loading"
+        pure 0.0
+      Failure e -> do
+        log $ "Failure" <> errorToString e
+        pure 0.0
+      Success a -> pure a.price
+  let
+    price = fromMaybe (fromInt 0) (fromString (show (floor a)))
+  pure price
+
+getPriceAjax ::
+  forall m.
+  MonadError AjaxError m =>
+  MonadAff m =>
+  (SPSettings_ SPParams_) -> String -> String -> m { price :: Number }
+getPriceAjax settings exchange pair = do
+  let
+    spParams_ = view (_params <<< _Newtype) settings
+
+    encodeOptions = view _encodeJson settings
+
+    decodeOptions = view _decodeJson settings
+
+    baseURL = spParams_.baseURL
+
+    httpMethod = HTTP.fromString "GET"
+
+    queryString = ""
+
+    reqUrl = baseURL <> "api/oracle/" <> exchange <> "/" <> pair
+
+    reqHeaders = []
+
+    affReq =
+      defaultRequest
+        { method = httpMethod
+        , url = reqUrl
+        , headers = defaultRequest.headers <> reqHeaders
+        , content = Nothing
+        }
+  r <- ajax F.decode affReq
+  pure r.body
 
 getCurrentContract :: forall m. HalogenM State Action ChildSlots Void m String
 getCurrentContract = do

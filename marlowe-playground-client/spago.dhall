@@ -13,6 +13,7 @@ You can edit this file as you like.
   , "datetime-iso"
   , "debug"
   , "effect"
+  , "affjax"
   , "formatters"
   , "functions"
   , "halogen"

@@ -15,6 +15,9 @@ import           API                                              (API)
 import qualified Auth
 import           Auth.Types                                       (OAuthClientId (OAuthClientId),
                                                                    OAuthClientSecret (OAuthClientSecret))
+import           Data.Aeson
+import           Data.String
+import qualified Data.HashMap.Strict as HM
 import           Control.Monad.Except                             (ExceptT)
 import           Control.Monad.IO.Class                           (MonadIO, liftIO)
 import           Control.Monad.Logger                             (LoggingT, MonadLogger, logInfoN, runStderrLoggingT)
@@ -27,6 +30,7 @@ import           Git                                              (gitRev)
 import           Language.Marlowe.ACTUS.Definitions.ContractTerms (ContractTerms)
 import           Language.Marlowe.ACTUS.Generator                 (genFsContract, genStaticContract)
 import           Language.Marlowe.Pretty                          (pretty)
+import           Network.HTTP.Simple (httpJSON, getResponseBody)
 import           Network.Wai.Middleware.Cors                      (cors, corsRequestHeaders, simpleCorsResourcePolicy)
 import           Servant                                          ((:<|>) ((:<|>)), (:>), Application,
                                                                    Handler (Handler), Server, ServerError, hoistServer,
@@ -39,6 +43,21 @@ genActusContract = pure . show . pretty . genFsContract
 
 genActusContractStatic :: ContractTerms -> Handler String
 genActusContractStatic = pure . show . pretty . genStaticContract
+
+
+oracle :: MonadIO m => String -> String -> m Value
+oracle exchange pair = do
+    response <- liftIO (httpJSON (fromString $ "GET https://api.cryptowat.ch/markets/" <> exchange <> "/" <> pair <> "/price"))
+    let result = getResponseBody response :: Value
+    let zero = Number (fromInteger 0)
+    let (Number price) = case result of
+            Object obj -> case HM.findWithDefault (Object HM.empty) "result" obj of
+                Object obj -> HM.findWithDefault zero "price" obj
+                _ -> zero
+            _ -> zero
+    let normalized = round (price * 100000000) :: Integer
+    pure (object [ "price" .= (Number $ fromInteger normalized) ])
+
 
 liftedAuthServer :: Auth.GithubEndpoints -> Auth.Config -> Server Auth.API
 liftedAuthServer githubEndpoints config =
@@ -61,7 +80,7 @@ version :: Applicative m => m Text
 version = pure gitRev
 
 mhandlers :: Server API
-mhandlers = version :<|> genActusContract :<|> genActusContractStatic
+mhandlers = oracle :<|> version :<|> genActusContract :<|> genActusContractStatic
 
 app :: Server Web -> Application
 app handlers =
