@@ -1,17 +1,15 @@
 module Simulation where
 
-import API (OracleResponse(..))
-import Data.HTTP.Method as HTTP
-import Foreign.Class as F
+import Data.EuclideanRing ((*))
+import Data.RawJson (RawJson(..))
 import Control.Alternative (map, void, when, (<|>))
-import Control.Monad.Error.Class (class MonadError)
-import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.Except (ExceptT, runExceptT, runExcept)
 import Control.Monad.Reader (runReaderT)
-import Affjax (defaultRequest)
-import Effect.Console (log)
 import Data.Array (delete, filter, intercalate, snoc, sortWith)
 import Data.Array as Array
 import Data.BigInteger (BigInteger, fromString, fromInt)
+import Data.Decimal (truncated, fromNumber)
+import Data.Decimal as Decimal
 import Data.Either (Either(..))
 import Data.Enum (toEnum, upFromIncluding)
 import Data.HeytingAlgebra (not, (&&))
@@ -20,6 +18,7 @@ import Data.Lens.Index (ix)
 import Data.Lens.Iso.Newtype (_Newtype)
 import Data.Lens.NonEmptyList (_Head)
 import Data.List.NonEmpty as NEL
+import Data.List.Types (NonEmptyList)
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe, isNothing, maybe)
@@ -31,8 +30,11 @@ import Data.Traversable (for_, traverse)
 import Data.Tuple (Tuple(..), snd)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Console (log)
 import FileEvents (readFileFromDragEvent)
 import FileEvents as FileEvents
+import Foreign.Generic (ForeignError, decode)
+import Foreign.JSON (parseJSON)
 import Halogen (HalogenM, query)
 import Halogen.Classes (aHorizontal, activeClasses, bold, closeDrawerIcon, codeEditor, expanded, fullHeight, infoIcon, noMargins, panelSubHeaderSide, plusBtn, pointer, scroll, sidebarComposer, smallBtn, spanText, textSecondaryColor, uppercase)
 import Halogen.Classes as Classes
@@ -45,7 +47,6 @@ import Halogen.Monaco (monacoComponent)
 import Help (HelpContext(..), toHTML)
 import LocalStorage as LocalStorage
 import MainFrame.Types (ChildSlots, _marloweEditorSlot)
-import Math (floor)
 import Marlowe (SPParams_)
 import Marlowe as Server
 import Marlowe.Linter as Linter
@@ -61,8 +62,8 @@ import Network.RemoteData as RemoteData
 import Prelude (class Show, Unit, Void, bind, bottom, const, discard, eq, flip, identity, mempty, otherwise, pure, show, unit, zero, ($), (-), (/=), (<), (<$>), (<<<), (<>), (=<<), (==), (>), (>=))
 import Projects.Types (Lang(..))
 import Reachability (startReachabilityAnalysis)
-import Servant.PureScript.Ajax (AjaxError, ajax, errorToString)
-import Servant.PureScript.Settings (SPSettings_, _decodeJson, _encodeJson, _params)
+import Servant.PureScript.Ajax (AjaxError, errorToString)
+import Servant.PureScript.Settings (SPSettings_)
 import Simulation.BottomPanel (bottomPanel)
 import Simulation.State (ActionInput(..), ActionInputId(..), Parties(..), _editorErrors, _editorWarnings, _executionState, _moveToAction, _pendingInputs, _possibleActions, _slot, _state, applyInput, emptyExecutionStateWithSlot, emptyMarloweState, hasHistory, mapPartiesActionInput, moveToSignificantSlot, moveToSlot, nextSignificantSlot, otherActionsParty, updateContractInState, updateMarloweState)
 import Simulation.Types (Action(..), AnalysisState(..), State, WebData, _activeDemo, _analysisState, _bottomPanelView, _currentContract, _currentMarloweState, _editorKeybindings, _helpContext, _marloweState, _oldContract, _selectedHole, _showBottomPanel, _showErrorDetail, _showRightPanel, _source, isContractValid)
@@ -291,25 +292,45 @@ setOraclePrice settings = do
           case Array.head (Map.toUnfoldable acts) of
             Just (Tuple (ChoiceInputId choiceId@(ChoiceId pair _) bounds) _) -> do
               price <- getPrice settings "kraken" pair
-              liftEffect $ log ("setting choice " <> show choiceId <> " with price " <> show price)
               handleAction settings (SetChoice choiceId price)
             _ -> pure unit
         Nothing -> pure unit
     Nothing -> pure unit
 
+type Resp
+  = { result :: { price :: Number }, allowance :: { remaining :: Number, upgrade :: String, cost :: Number } }
+
 getPrice :: forall m. MonadAff m => SPSettings_ SPParams_ -> String -> String -> HalogenM State Action ChildSlots Void m BigInteger
 getPrice settings exchange pair = do
   result <- runAjax (runReaderT (Server.getApiOracleByExchangeByPair exchange pair) settings)
-  a <-
+  calculatedPrice <-
     liftEffect case result of
       NotAsked -> pure "0"
       Loading -> pure "0"
       Failure e -> do
         log $ "Failure" <> errorToString e
         pure "0"
-      Success (OracleResponse a) -> pure a.price
+      Success (RawJson json) -> do
+        let
+          response :: Either (NonEmptyList ForeignError) Resp
+          response =
+            runExcept
+              $ do
+                  foreignJson <- parseJSON json
+                  decode foreignJson
+        case response of
+          Right resp -> do
+            let
+              price = fromNumber resp.result.price
+            let
+              adjustedPrice = price * fromNumber 100000000.0
+            log $ "Got price: " <> show resp.result.price <> ", remaining calls: " <> show resp.allowance.remaining
+            pure $ Decimal.toString (truncated adjustedPrice)
+          Left err -> do
+            log $ "Left " <> show err
+            pure "0"
   let
-    price = fromMaybe zero (fromString a)
+    price = fromMaybe zero (fromString calculatedPrice)
   pure price
 
 getCurrentContract :: forall m. HalogenM State Action ChildSlots Void m String

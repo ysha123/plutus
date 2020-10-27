@@ -46,19 +46,11 @@ genActusContractStatic :: ContractTerms -> Handler String
 genActusContractStatic = pure . show . pretty . genStaticContract
 
 
-oracle :: MonadIO m => String -> String -> m OracleResponse
+oracle :: MonadIO m => String -> String -> m Value
 oracle exchange pair = do
     response <- liftIO (httpJSON (fromString $ "GET https://api.cryptowat.ch/markets/" <> exchange <> "/" <> pair <> "/price"))
     let result = getResponseBody response :: Value
-    let zero = Number (fromInteger 0)
-    let (Number price) = case result of
-            Object obj -> case HM.findWithDefault (Object HM.empty) "result" obj of
-                Object obj -> HM.findWithDefault zero "price" obj
-                _          -> zero
-            _ -> zero
-    let normalized = round (price * 100000000) :: Integer
-    -- pure (object [ "price" .= (String $ fromString (show normalized)) ])
-    pure (OracleResponse (show normalized))
+    pure result
 
 
 liftedAuthServer :: Auth.GithubEndpoints -> Auth.Config -> Server Auth.API
