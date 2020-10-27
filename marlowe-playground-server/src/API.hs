@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds          #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE DeriveGeneric    #-}
-{-# LANGUAGE DeriveAnyClass             #-}
 {-# LANGUAGE TypeOperators      #-}
 
 module API where
