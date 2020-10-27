@@ -167,6 +167,7 @@ myTypes =
     , mkSumType (Proxy @CT.Assertions)
     , mkSumType (Proxy @CT.AssertionContext)
     , mkSumType (Proxy @Webghc.CompileRequest)
+    , mkSumType (Proxy @API.OracleResponse)
     ]
 
 mySettings :: Settings

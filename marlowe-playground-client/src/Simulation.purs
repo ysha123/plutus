@@ -1,5 +1,6 @@
 module Simulation where
 
+import API (OracleResponse(..))
 import Data.HTTP.Method as HTTP
 import Foreign.Class as F
 import Control.Alternative (map, void, when, (<|>))
@@ -139,7 +140,6 @@ handleAction settings (LoadScript key) = do
 handleAction settings (SetEditorText contents) = do
   editorSetValue contents
   updateContractInState contents
-  setOraclePrice settings
 
 handleAction settings StartSimulation = do
   assign (_currentMarloweState <<< _executionState) (Just $ emptyExecutionStateWithSlot zero)
@@ -299,55 +299,18 @@ setOraclePrice settings = do
 
 getPrice :: forall m. MonadAff m => SPSettings_ SPParams_ -> String -> String -> HalogenM State Action ChildSlots Void m BigInteger
 getPrice settings exchange pair = do
-  result <- runAjax (getPriceAjax settings exchange pair)
+  result <- runAjax (runReaderT (Server.getApiOracleByExchangeByPair exchange pair) settings)
   a <-
     liftEffect case result of
-      NotAsked -> do
-        log "NotAsked"
-        pure 0.0
-      Loading -> do
-        log "Loading"
-        pure 0.0
+      NotAsked -> pure "0"
+      Loading -> pure "0"
       Failure e -> do
         log $ "Failure" <> errorToString e
-        pure 0.0
-      Success a -> pure a.price
+        pure "0"
+      Success (OracleResponse a) -> pure a.price
   let
-    price = fromMaybe (fromInt 0) (fromString (show (floor a)))
+    price = fromMaybe zero (fromString a)
   pure price
-
-getPriceAjax ::
-  forall m.
-  MonadError AjaxError m =>
-  MonadAff m =>
-  (SPSettings_ SPParams_) -> String -> String -> m { price :: Number }
-getPriceAjax settings exchange pair = do
-  let
-    spParams_ = view (_params <<< _Newtype) settings
-
-    encodeOptions = view _encodeJson settings
-
-    decodeOptions = view _decodeJson settings
-
-    baseURL = spParams_.baseURL
-
-    httpMethod = HTTP.fromString "GET"
-
-    queryString = ""
-
-    reqUrl = baseURL <> "api/oracle/" <> exchange <> "/" <> pair
-
-    reqHeaders = []
-
-    affReq =
-      defaultRequest
-        { method = httpMethod
-        , url = reqUrl
-        , headers = defaultRequest.headers <> reqHeaders
-        , content = Nothing
-        }
-  r <- ajax F.decode affReq
-  pure r.body
 
 getCurrentContract :: forall m. HalogenM State Action ChildSlots Void m String
 getCurrentContract = do

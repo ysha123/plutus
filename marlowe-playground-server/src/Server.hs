@@ -11,7 +11,7 @@
 
 module Server where
 
-import           API                                              (API)
+import           API
 import qualified Auth
 import           Auth.Types                                       (OAuthClientId (OAuthClientId),
                                                                    OAuthClientSecret (OAuthClientSecret))
@@ -19,11 +19,12 @@ import           Control.Monad.Except                             (ExceptT)
 import           Control.Monad.IO.Class                           (MonadIO, liftIO)
 import           Control.Monad.Logger                             (LoggingT, MonadLogger, logInfoN, runStderrLoggingT)
 import           Control.Monad.Reader                             (ReaderT, runReaderT)
-import           Data.Aeson
-import           Data.Aeson                                       (ToJSON, eitherDecode, encode)
+import           GHC.Generics             (Generic)
+import           Data.Aeson                                       as Aeson
+import           Data.Aeson                                       (FromJSON, ToJSON, eitherDecode, encode)
 import qualified Data.HashMap.Strict                              as HM
 import           Data.Proxy                                       (Proxy (Proxy))
-import           Data.String
+import           Data.String                                      as S
 import           Data.Text                                        (Text)
 import qualified Data.Text                                        as Text
 import           Git                                              (gitRev)
@@ -45,7 +46,7 @@ genActusContractStatic :: ContractTerms -> Handler String
 genActusContractStatic = pure . show . pretty . genStaticContract
 
 
-oracle :: MonadIO m => String -> String -> m Value
+oracle :: MonadIO m => String -> String -> m OracleResponse
 oracle exchange pair = do
     response <- liftIO (httpJSON (fromString $ "GET https://api.cryptowat.ch/markets/" <> exchange <> "/" <> pair <> "/price"))
     let result = getResponseBody response :: Value
@@ -56,7 +57,8 @@ oracle exchange pair = do
                 _          -> zero
             _ -> zero
     let normalized = round (price * 100000000) :: Integer
-    pure (object [ "price" .= (Number $ fromInteger normalized) ])
+    -- pure (object [ "price" .= (String $ fromString (show normalized)) ])
+    pure (OracleResponse (show normalized))
 
 
 liftedAuthServer :: Auth.GithubEndpoints -> Auth.Config -> Server Auth.API
