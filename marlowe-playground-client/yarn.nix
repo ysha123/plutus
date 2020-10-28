@@ -1453,7 +1453,7 @@
       name = "decimal.js___decimal.js_10.2.1.tgz";
       path = fetchurl {
         name = "decimal.js___decimal.js_10.2.1.tgz";
-        url  = "https://registry.yarnpkg.com/decimal.js/-/decimal.js-10.2.1.tgz";
+        url = "https://registry.yarnpkg.com/decimal.js/-/decimal.js-10.2.1.tgz";
         sha1 = "238ae7b0f0c793d3e3cea410108b35a2c01426a3";
       };
     }
