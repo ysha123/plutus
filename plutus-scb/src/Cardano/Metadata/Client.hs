@@ -14,7 +14,7 @@ module Cardano.Metadata.Client
     ) where
 
 import           Cardano.Metadata.API      (API)
-import           Cardano.Metadata.Types    (JSONEncoding (AesonEncoding),
+import           Cardano.Metadata.Types    (JSONEncoding (ExternalEncoding),
                                             MetadataEffect (BatchQuery, GetProperties, GetProperty),
                                             MetadataError (MetadataClientError, SubjectNotFound, SubjectPropertyNotFound),
                                             QueryResult (QueryResult))
@@ -32,7 +32,7 @@ import           Servant.Extra             (left, right)
 -- and 'ExternalEncoding' depending on which metadata server we're
 -- using. See the notes on this, and 'coerce', in
 -- 'Cardano.Metadata.Types'.
-api :: Client ClientM (API 'AesonEncoding)
+api :: Client ClientM (API 'ExternalEncoding)
 api = client (Proxy @(API _))
 
 handleMetadataClient ::
