@@ -40,12 +40,11 @@ library
     hs-source-dirs: src
     exposed-modules:
         Language.PlutusTx.Plugin
+        Language.PlutusTx.Compiler.Error
     other-modules:
         Language.PlutusTx.LoadBind
         Language.PlutusTx.PLCTypes
         Language.PlutusTx.PIRTypes
-        Language.PlutusTx.Compiler.Error
-    other-modules:
         Language.PlutusTx.Compiler.Binders
         Language.PlutusTx.Compiler.Builtins
         Language.PlutusTx.Compiler.Expr

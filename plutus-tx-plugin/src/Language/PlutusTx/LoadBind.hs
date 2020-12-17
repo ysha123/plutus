@@ -2,22 +2,22 @@ module Language.PlutusTx.LoadBind
     ( newLoadBind
     ) where
 
-import NameEnv
-import Id
-import TcRnTypes
-import TcRnMonad
-import Data.Maybe
-import Outputable
-import IfaceSyn
-import IfaceEnv
-import TcIface
-import BinIface
-import Maybes
-import Data.IORef
-import Name
-import Module
-import HscTypes
-import CoreSyn
+import           BinIface
+import           CoreSyn
+import           Data.IORef
+import           Data.Maybe
+import           HscTypes
+import           Id
+import           IfaceEnv
+import           IfaceSyn
+import           Maybes
+import           Module
+import           Name
+import           NameEnv
+import           Outputable
+import           TcIface
+import           TcRnMonad
+import           TcRnTypes
 
 {-
 Initialise a stateful `IO` function for loading core bindings by loading the
@@ -77,11 +77,15 @@ we assume (based on which types of bindings we have determined become top-level
 recursive bindings):
 * The binding has at least one case
 * All cases have the same `Name`.
+
+In other words, a top-level bind can be either non-recursive or self-recursive (same name).
+If some top-level binds are mutually-recursive, they will appear in Core as
+separate `Bind`s and not under 1 recursive bind, as in in local `let` bindings.
 -}
 nameOf :: Bind Id -> Name
 nameOf (NonRec n _)     = idName n
 nameOf (Rec ((n, _):_)) = idName n
-nameOf (Rec []) = error "This can never happen at runtime."
+nameOf (Rec [])         = error "This can never happen at runtime."
 
 {-
 Perform interface `typecheck` loading from this binding's extensible interface
@@ -94,7 +98,7 @@ loadCoreBindings iface = do
   mbinds <- liftIO (readIfaceFieldWith "ghc/phase/core" (getWithUserData ncu) iface)
   case mbinds of
     Just ibinds -> Just . catMaybes <$> mapM tcIfaceBinding ibinds
-    Nothing            -> return Nothing
+    Nothing     -> return Nothing
 
 
 
