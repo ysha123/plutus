@@ -47,28 +47,38 @@ loadBind modBindsR env name = do
   eps      <- hscEPS env
   modBinds <- readIORef modBindsR
   case nameModule_maybe name of
-   Just modu | Just iface <- lookupIfaceByModule (hsc_HPT env) (eps_PIT eps) modu -> do
+   Just modu -> do
       case lookupModuleEnv modBinds modu of
-        Just Nothing -> return Nothing -- We've already checked this module, and it doesn't have bindings
-                                       -- serialised - probably because it's from an external package,
-                                       -- but it could also have not been compiled with the plugin.
-        Just (Just binds) -> return $ lookupNameEnv binds name -- We've imported this module - lookup the binding.
-        Nothing -> do -- Try and import the module.
-             bnds <- initIfaceLoad env $
-                     -- false says that is is not an .hs-boot file
-                     -- instead of False put NotBoot for >=GHC9
-                     initIfaceLcl (mi_semantic_module iface) (text "core") False $
-                       loadCoreBindings iface
-             case bnds of
-               Just bds -> do
-                 let binds' = mkNameEnvWith nameOf bds
-                 writeIORef modBindsR (extendModuleEnv modBinds modu (Just binds'))
-                 return $ lookupNameEnv binds' name
-               Nothing -> do
-                 writeIORef modBindsR (extendModuleEnv modBinds modu Nothing)
-                 return Nothing
+        -- Cache hit:
+        -- Either it is in the local module (has no iface yet, thus looking at modguts)
+        -- or in an external module which we have loaded its iface before
+        Just (Just binds) -> return $ lookupNameEnv binds name
+        -- Cache hit:
+        -- It is in an external module that we tried to load its iface before but failed,
+        -- probably because it was not compiled with the patched-ghc.
+        Just Nothing -> return Nothing
+        -- Cache miss:
+        -- Try and import the iface of the *external* module. A local module always produces a cache hit.
+        Nothing ->
+            case lookupIfaceByModule (hsc_HPT env) (eps_PIT eps) modu of
+                Just iface -> do
+                    bnds <- initIfaceLoad env $
+                        -- False signifies that is is not an .hs-boot file
+                        -- FIXME: instead of False put NotBoot for >=GHC9
+                        initIfaceLcl (mi_semantic_module iface) (text "core") False $
+                        loadCoreBindings iface
+                    case bnds of
+                        Just bds -> do
+                            let binds' = mkNameEnvWith nameOf bds
+                            writeIORef modBindsR (extendModuleEnv modBinds modu (Just binds'))
+                            return $ lookupNameEnv binds' name
+                        Nothing -> do
+                            writeIORef modBindsR (extendModuleEnv modBinds modu Nothing)
+                            return Nothing
+                _ -> do
+                    writeIORef modBindsR (extendModuleEnv modBinds modu Nothing)
+                    return Nothing
    _ -> return Nothing
-
 
 
 {-
