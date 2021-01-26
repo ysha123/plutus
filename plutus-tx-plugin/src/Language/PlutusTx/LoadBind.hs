@@ -6,6 +6,7 @@ import           BinIface
 import           CoreSyn
 import           Data.IORef
 import           Data.Maybe
+import Data.Bifunctor
 import           HscTypes
 import           Id
 import           IfaceEnv
@@ -17,7 +18,6 @@ import           NameEnv
 import           Outputable
 import           TcIface
 import           TcRnMonad
-import           TcRnTypes
 
 {-
 Initialise a stateful `IO` function for loading core bindings by loading the
@@ -32,7 +32,7 @@ we'll have to rely on the optimisations being run on our already inlined ASTs.
 -}
 newLoadBind :: HscEnv -> ModGuts -> IO (Name -> IO (Maybe (Bind CoreBndr)))
 newLoadBind hscEnv guts = do
-  let binds = mkNameEnvWith nameOf (mg_binds guts)
+  let binds = bindsToNameEnv $ mg_binds guts
   modBindsR <- newIORef (extendModuleEnv emptyModuleEnv (mg_module guts) (Just binds))
   return (loadBind modBindsR hscEnv)
 
@@ -69,33 +69,31 @@ loadBind modBindsR env name = do
                         loadCoreBindings iface
                     case bnds of
                         Just bds -> do
-                            let binds' = mkNameEnvWith nameOf bds
+                            let binds' = bindsToNameEnv bds
                             writeIORef modBindsR (extendModuleEnv modBinds modu (Just binds'))
                             return $ lookupNameEnv binds' name
                         Nothing -> do
+                            -- failed to load the iface
                             writeIORef modBindsR (extendModuleEnv modBinds modu Nothing)
                             return Nothing
                 _ -> do
+                    -- failed to load the iface
                     writeIORef modBindsR (extendModuleEnv modBinds modu Nothing)
                     return Nothing
    _ -> return Nothing
 
-
-{-
-Retrieve the name of a top-level binding. In the case of recursive bindings,
-we assume (based on which types of bindings we have determined become top-level
-recursive bindings):
-* The binding has at least one case
-* All cases have the same `Name`.
-
-In other words, a top-level bind can be either non-recursive or self-recursive (same name).
-If some top-level binds are mutually-recursive, they will appear in Core as
-separate `Bind`s and not under 1 recursive bind, as in in local `let` bindings.
+{- From a list of binds construct a mapping of name to each bind.
+Note that in case of a mutually recursive function (names), the bind will contain more than one names;
+for each such name a key will be created in the mapping and its value will be the same bind duplicated
+and distributed among all these mutually recursive names.
 -}
-nameOf :: Bind Id -> Name
-nameOf (NonRec n _)     = idName n
-nameOf (Rec ((n, _):_)) = idName n
-nameOf (Rec [])         = error "This can never happen at runtime."
+bindsToNameEnv :: [Bind Id] -> NameEnv (Bind Id)
+bindsToNameEnv = mkNameEnv . concatMap bindToNameEntry
+  where
+    bindToNameEntry :: Bind Id -> [(Name, Bind Id)]
+    bindToNameEntry b@(NonRec n _) = [(idName n,b)]
+    bindToNameEntry b@(Rec assocs) = bimap idName (const b) <$> assocs
+
 
 {-
 Perform interface `typecheck` loading from this binding's extensible interface
@@ -109,8 +107,6 @@ loadCoreBindings iface = do
   case mbinds of
     Just ibinds -> Just . catMaybes <$> mapM tcIfaceBinding ibinds
     Nothing     -> return Nothing
-
-
 
 -------------------------------------------------------------------------------
 -- Interface loading for top-level bindings

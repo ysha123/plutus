@@ -473,15 +473,21 @@ compileExpr e = withContextM 2 (sdToTxt $ "Compiling expr:" GHC.<+> GHC.ppr e) $
             let rhs = GHC.mkDictSelRhs cls val_index
 
             hoistExpr n rhs
-        GHC.Var n -> do
+        expr@(GHC.Var n) -> do
             -- Defined names, including builtin names
             maybeDef <- PIR.lookupTerm () (LexName $ GHC.getName n)
             case maybeDef of
                 Just term -> pure term
-                Nothing -> throwSd FreeVariableError $
-                    "Variable" GHC.<+> GHC.ppr n
-                    GHC.$+$ (GHC.ppr $ GHC.idDetails n)
-                    GHC.$+$ (GHC.ppr $ GHC.realIdUnfolding n)
+                Nothing -> do
+                    lookupFn <- asks ccLookup
+                    mres <- liftIO $ lookupFn $ GHC.getName n
+                    case mres of
+                        Just b -> hoistExpr n (GHC.Let b $ expr)
+                        Nothing -> do
+                            throwSd FreeVariableError $
+                                "Variable" GHC.<+> GHC.ppr n
+                                GHC.$+$ (GHC.ppr $ GHC.idDetails n)
+                                GHC.$+$ (GHC.ppr $ GHC.realIdUnfolding n)
 
         -- arg can be a type here, in which case it's a type instantiation
         l `GHC.App` GHC.Type t -> PIR.TyInst () <$> compileExpr l <*> compileTypeNorm t
