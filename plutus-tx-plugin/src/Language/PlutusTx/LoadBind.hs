@@ -4,9 +4,9 @@ module Language.PlutusTx.LoadBind
 
 import           BinIface
 import           CoreSyn
+import           Data.Bifunctor
 import           Data.IORef
 import           Data.Maybe
-import Data.Bifunctor
 import           HscTypes
 import           Id
 import           IfaceEnv
@@ -87,13 +87,12 @@ Note that in case of a mutually recursive function (names), the bind will contai
 for each such name a key will be created in the mapping and its value will be the same bind duplicated
 and distributed among all these mutually recursive names.
 -}
-bindsToNameEnv :: [Bind Id] -> NameEnv (Bind Id)
+bindsToNameEnv :: [CoreBind] -> NameEnv (CoreBind)
 bindsToNameEnv = mkNameEnv . concatMap bindToNameEntry
   where
-    bindToNameEntry :: Bind Id -> [(Name, Bind Id)]
+    bindToNameEntry :: CoreBind -> [(Name, CoreBind)]
     bindToNameEntry b@(NonRec n _) = [(idName n,b)]
     bindToNameEntry b@(Rec assocs) = bimap idName (const b) <$> assocs
-
 
 {-
 Perform interface `typecheck` loading from this binding's extensible interface

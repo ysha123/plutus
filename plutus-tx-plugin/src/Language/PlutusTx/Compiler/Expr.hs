@@ -451,43 +451,37 @@ compileExpr e = withContextM 2 (sdToTxt $ "Compiling expr:" GHC.<+> GHC.ppr e) $
         GHC.Var n | isProbablyBytestringEq n -> throwPlain $ UnsupportedError "Use of Haskell ByteString equality, possibly via the Haskell Eq typeclass"
 
         -- locally bound vars
-        GHC.Var (lookupName top . GHC.getName -> Just var) -> pure $ PIR.mkVar () var
+        GHC.Var (GHC.getName -> lookupName top -> Just var) -> pure $ PIR.mkVar () var
 
         -- Special kinds of id
         GHC.Var (GHC.idDetails -> GHC.PrimOpId po) -> compilePrimitiveOp po
         GHC.Var (GHC.idDetails -> GHC.DataConWorkId dc) -> compileDataConRef dc
 
-        -- See Note [Unfoldings]
-        -- The "unfolding template" includes things with normal unfoldings and also dictionary functions
-        GHC.Var n@(GHC.maybeUnfoldingTemplate . GHC.realIdUnfolding -> Just unfolding) -> hoistExpr n unfolding
-        -- Class ops don't have unfoldings in general (although they do if they're for one-method classes, so we
-        -- want to check the unfoldings case first), see the GHC Note [ClassOp/DFun selection] for why. That
-        -- means we have to reconstruct the RHS ourselves, though, which is a pain.
-        GHC.Var n@(GHC.idDetails -> GHC.ClassOpId cls) -> do
-            -- This code (mostly) lifted from MkId.mkDictSelId, which makes unfoldings for those dictionary
-            -- selectors that do have them
-            let sel_names = fmap GHC.getName (GHC.classAllSelIds cls)
-            val_index <- case elemIndex (GHC.getName n) sel_names of
-                Just i  -> pure i
-                Nothing -> throwSd CompilationError $ "Id not in class method list:" GHC.<+> GHC.ppr n
-            let rhs = GHC.mkDictSelRhs cls val_index
+        GHC.Var n -> do
+            -- todo: switch to alternative?
+            -- PIR.lookupTerm () (LexName $ GHC.getName n)
+            -- <|>
+            -- (lookupBind >>= lookup assoc >>= hoistExpr)
+            -- <|>
+            -- (try old unfolding)
+            -- <|>
+            -- (try class > 2 params)
+            -- <|>
+            -- throw CompilationError
 
-            hoistExpr n rhs
-        expr@(GHC.Var n) -> do
             -- Defined names, including builtin names
             maybeDef <- PIR.lookupTerm () (LexName $ GHC.getName n)
             case maybeDef of
                 Just term -> pure term
                 Nothing -> do
-                    lookupFn <- asks ccLookup
-                    mres <- liftIO $ lookupFn $ GHC.getName n
-                    case mres of
-                        Just b -> hoistExpr n (GHC.Let b $ expr)
-                        Nothing -> do
-                            throwSd FreeVariableError $
-                                "Variable" GHC.<+> GHC.ppr n
-                                GHC.$+$ (GHC.ppr $ GHC.idDetails n)
-                                GHC.$+$ (GHC.ppr $ GHC.realIdUnfolding n)
+                    lookupBind <- asks ccLookupBind
+                    mbind <- liftIO . lookupBind $ GHC.getName n
+                    case mbind of
+                        Just b ->
+                            case lookup n $ bindAssocs b of
+                                Nothing -> oldApproach n
+                                Just expr -> hoistExpr n expr
+                        Nothing -> oldApproach n
 
         -- arg can be a type here, in which case it's a type instantiation
         l `GHC.App` GHC.Type t -> PIR.TyInst () <$> compileExpr l <*> compileTypeNorm t
@@ -580,6 +574,15 @@ compileExpr e = withContextM 2 (sdToTxt $ "Compiling expr:" GHC.<+> GHC.ppr e) $
         GHC.Type _ -> throwPlain $ UnsupportedError "Types as standalone expressions"
         GHC.Coercion _ -> throwPlain $ UnsupportedError "Coercions as expressions"
 
+{- Throw away the Rec/NonRec information, and
+return an assoc list of Var to the RHS core expression.
+NOTE: relies on the fact that ghc packs the possibly many equations of a var binder
+into a single rhs equation, using an extra `case`.
+-}
+bindAssocs :: GHC.CoreBind -> [(GHC.Var, GHC.CoreExpr)]
+bindAssocs (GHC.NonRec n expr) = [(n,expr)]
+bindAssocs (GHC.Rec eqs) = eqs
+
 compileExprWithDefs
     :: CompilingDefault uni fun m
     => GHC.CoreExpr -> m (PIRTerm uni fun)
@@ -587,3 +590,31 @@ compileExprWithDefs e = do
     defineBuiltinTypes
     defineBuiltinTerms
     compileExpr e
+
+oldApproach :: CompilingDefault uni fun m
+            => GHC.Var -> m (PIRTerm uni fun)
+oldApproach = \case
+    -- See Note [Unfoldings]
+    -- The "unfolding template" includes things with normal unfoldings and also dictionary functions
+    n@(GHC.maybeUnfoldingTemplate . GHC.realIdUnfolding -> Just unfolding) -> hoistExpr n unfolding
+    -- Class ops don't have unfoldings in general (although they do if they're for one-method classes, so we
+    -- want to check the unfoldings case first), see the GHC Note [ClassOp/DFun selection] for why. That
+    -- means we have to reconstruct the RHS ourselves, though, which is a pain.
+    n@(GHC.idDetails -> GHC.ClassOpId cls) -> do
+        -- This code (mostly) lifted from MkId.mkDictSelId, which makes unfoldings for those dictionary
+        -- selectors that do have them
+        let sel_names = fmap GHC.getName (GHC.classAllSelIds cls)
+        val_index <- case elemIndex (GHC.getName n) sel_names of
+            Just i  -> pure i
+            Nothing -> throwSd CompilationError $ "Id not in class method list:" GHC.<+> GHC.ppr n
+        let rhs = GHC.mkDictSelRhs cls val_index
+        hoistExpr n rhs
+    n -> do
+        -- Defined names, including builtin names
+        maybeDef <- PIR.lookupTerm () (LexName $ GHC.getName n)
+        case maybeDef of
+            Just term -> pure term
+            Nothing -> throwSd FreeVariableError $
+                      "Variable" GHC.<+> GHC.ppr n
+                      GHC.$+$ (GHC.ppr $ GHC.idDetails n)
+                      GHC.$+$ (GHC.ppr $ GHC.realIdUnfolding n)

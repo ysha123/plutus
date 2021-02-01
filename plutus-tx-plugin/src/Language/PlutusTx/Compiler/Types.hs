@@ -42,7 +42,7 @@ data CompileContext uni fun = CompileContext {
     ccBuiltinNameInfo :: BuiltinNameInfo,
     ccScopes          :: ScopeStack uni fun,
     ccBlackholed      :: Set.Set GHC.Name,
-    ccLookup :: GHC.Name -> IO (Maybe (GHC.Bind GHC.CoreBndr))
+    ccLookupBind :: GHC.Name -> IO (Maybe GHC.CoreBind)
     }
 
 -- | A wrapper around 'GHC.Name' with a stable 'Ord' instance. Use this where the ordering

@@ -66,7 +66,7 @@ data PluginCtx = PluginCtx
     { pcOpts       :: PluginOptions
     , pcFamEnvs    :: GHC.FamInstEnvs
     , pcMarkerName :: GHC.Name
-    , pcLookup :: GHC.Name -> IO (Maybe (GHC.Bind GHC.CoreBndr))
+    , pcLookupBind :: GHC.Name -> IO (Maybe GHC.CoreBind)
     }
 
 {- Note [Making sure unfoldings are present]
@@ -162,12 +162,12 @@ mkPluginPass opts = GHC.CoreDoPluginPass "Core to PLC" $ \ guts -> do
             p_fam_env <- GHC.getPackageFamInstEnv
 
             env    <- GHC.getHscEnv
-            lookupFn <- liftIO $ newLoadBind env guts
+            lookupBindFn <- liftIO $ newLoadBind env guts
 
             let pctx = PluginCtx { pcOpts = opts
                                  , pcFamEnvs = (p_fam_env, GHC.mg_fam_inst_env guts)
                                  , pcMarkerName = markerName
-                                 , pcLookup = lookupFn
+                                 , pcLookupBind = lookupBindFn
                                  }
                 -- start looking for plc calls from the top-level binds
             GHC.bindsOnlyPass (runPluginM pctx . traverse compileBind) guts
@@ -279,7 +279,7 @@ compileMarkedExpr locStr codeTy origE = do
     flags <- GHC.getDynFlags
     famEnvs <- asks pcFamEnvs
     opts <- asks pcOpts
-    lookupFun <- asks pcLookup
+    lookupBindFn <- asks pcLookupBind
     -- We need to do this out here, since it has to run in CoreM
     nameInfo <- makePrimitiveNameInfo builtinNames
     let ctx = CompileContext {
@@ -289,7 +289,7 @@ compileMarkedExpr locStr codeTy origE = do
             ccBuiltinNameInfo = nameInfo,
             ccScopes = initialScopeStack,
             ccBlackholed = mempty,
-            ccLookup = lookupFun
+            ccLookupBind = lookupBindFn
             }
 
     (pirP,uplcP) <- runQuoteT . flip runReaderT ctx $ withContextM 1 (sdToTxt $ "Compiling expr at" GHC.<+> GHC.text locStr) $ runCompiler opts origE
