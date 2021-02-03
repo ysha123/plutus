@@ -154,27 +154,27 @@ deriving anyclass instance (ToJSON i, ToJSON o) => ToJSON (TxConstraints i o)
 deriving anyclass instance (FromJSON i, FromJSON o) => FromJSON (TxConstraints i o)
 deriving stock instance (Haskell.Eq i, Haskell.Eq o) => Haskell.Eq (TxConstraints i o)
 
-{-# INLINABLE singleton #-}
+{-# NOINLINE singleton #-}
 singleton :: TxConstraint -> TxConstraints i o
 singleton a = mempty { txConstraints = [a] }
 
-{-# INLINABLE mustValidateIn #-}
+{-# NOINLINE mustValidateIn #-}
 -- | @mustValidateIn r@ requires the transaction's slot range to be contained
 --   in @r@.
 mustValidateIn :: forall i o. SlotRange -> TxConstraints i o
 mustValidateIn = singleton . MustValidateIn
 
-{-# INLINABLE mustBeSignedBy #-}
+{-# NOINLINE mustBeSignedBy #-}
 -- | Require the transaction to be signed by the public key.
 mustBeSignedBy :: forall i o. PubKeyHash -> TxConstraints i o
 mustBeSignedBy = singleton . MustBeSignedBy
 
-{-# INLINABLE mustIncludeDatum #-}
+{-# NOINLINE mustIncludeDatum #-}
 -- | Require the transaction to include a datum.
 mustIncludeDatum :: forall i o. Datum -> TxConstraints i o
 mustIncludeDatum = singleton . MustIncludeDatum
 
-{-# INLINABLE mustPayToTheScript #-}
+{-# NOINLINE mustPayToTheScript #-}
 -- | Lock the value with a script
 mustPayToTheScript :: forall i o. PlutusTx.IsData o => o -> Value -> TxConstraints i o
 mustPayToTheScript dt vl =
@@ -184,19 +184,19 @@ mustPayToTheScript dt vl =
         , txOwnOutputs = [OutputConstraint dt vl]
         }
 
-{-# INLINABLE mustPayToPubKey #-}
+{-# NOINLINE mustPayToPubKey #-}
 -- | Lock the value with a public key
 mustPayToPubKey :: forall i o. PubKeyHash -> Value -> TxConstraints i o
 mustPayToPubKey pk = singleton . MustPayToPubKey pk
 
-{-# INLINABLE mustPayToOtherScript #-}
+{-# NOINLINE mustPayToOtherScript #-}
 -- | Lock the value with a public key
 mustPayToOtherScript :: forall i o. ValidatorHash -> Datum -> Value -> TxConstraints i o
 mustPayToOtherScript vh dv vl =
     singleton (MustPayToOtherScript vh dv vl)
     <> singleton (MustIncludeDatum dv)
 
-{-# INLINABLE mustForgeValue #-}
+{-# NOINLINE mustForgeValue #-}
 -- | Create the given value
 mustForgeValue :: forall i o. Value -> TxConstraints i o
 mustForgeValue = foldMap valueConstraint . (AssocMap.toList . Value.getValue) where
@@ -204,29 +204,29 @@ mustForgeValue = foldMap valueConstraint . (AssocMap.toList . Value.getValue) wh
         let hs = Value.currencyMPSHash currencySymbol in
         foldMap (uncurry (mustForgeCurrency hs)) (AssocMap.toList mp)
 
-{-# INLINABLE mustForgeCurrency #-}
+{-# NOINLINE mustForgeCurrency #-}
 -- | Create the given amount of the currency
 mustForgeCurrency :: forall i o. MonetaryPolicyHash -> TokenName -> Integer -> TxConstraints i o
 mustForgeCurrency mps tn = singleton . MustForgeValue mps tn
 
-{-# INLINABLE mustSpendValue #-}
+{-# NOINLINE mustSpendValue #-}
 -- | Requirement to spend the given value
 mustSpendValue :: forall i o. Value -> TxConstraints i o
 mustSpendValue = singleton . MustSpendValue
 
-{-# INLINABLE mustSpendPubKeyOutput #-}
+{-# NOINLINE mustSpendPubKeyOutput #-}
 mustSpendPubKeyOutput :: forall i o. TxOutRef -> TxConstraints i o
 mustSpendPubKeyOutput = singleton . MustSpendPubKeyOutput
 
-{-# INLINABLE mustSpendScriptOutput #-}
+{-# NOINLINE mustSpendScriptOutput #-}
 mustSpendScriptOutput :: forall i o. TxOutRef -> Redeemer -> TxConstraints i o
 mustSpendScriptOutput txOutref = singleton . MustSpendScriptOutput txOutref
 
-{-# INLINABLE mustHashDatum #-}
+{-# NOINLINE mustHashDatum #-}
 mustHashDatum :: DatumHash -> Datum -> TxConstraints i o
 mustHashDatum dvh = singleton . MustHashDatum dvh
 
-{-# INLINABLE isSatisfiable #-}
+{-# NOINLINE isSatisfiable #-}
 -- | Are the constraints satisfiable?
 isSatisfiable :: forall i o. TxConstraints i o -> Bool
 isSatisfiable TxConstraints{txConstraints} =
@@ -234,38 +234,38 @@ isSatisfiable TxConstraints{txConstraints} =
         itvl = foldl I.intersection I.always intervals
     in not (I.isEmpty itvl)
 
-{-# INLINABLE pubKeyPayments #-}
+{-# NOINLINE pubKeyPayments #-}
 pubKeyPayments :: forall i o. TxConstraints i o -> [(PubKeyHash, Value)]
 pubKeyPayments TxConstraints{txConstraints} =
     Map.toList
     $ Map.fromListWith (<>)
       (txConstraints >>= \case { MustPayToPubKey pk vl -> [(pk, vl)]; _ -> [] })
 
-{-# INLINABLE mustSpendValueTotal #-}
+{-# NOINLINE mustSpendValueTotal #-}
 mustSpendValueTotal :: forall i o. TxConstraints i o -> Value
 mustSpendValueTotal = foldMap f . txConstraints where
     f (MustSpendValue v) = v
     f _                  = mempty
 
-{-# INLINABLE requiredSignatories #-}
+{-# NOINLINE requiredSignatories #-}
 requiredSignatories :: forall i o. TxConstraints i o -> [PubKeyHash]
 requiredSignatories = foldMap f . txConstraints where
     f (MustBeSignedBy pk) = [pk]
     f _                   = []
 
-{-# INLINABLE requiredMonetaryPolicies #-}
+{-# NOINLINE requiredMonetaryPolicies #-}
 requiredMonetaryPolicies :: forall i o. TxConstraints i o -> [MonetaryPolicyHash]
 requiredMonetaryPolicies = foldMap f . txConstraints where
     f (MustForgeValue mps _ _) = [mps]
     f _                        = []
 
-{-# INLINABLE requiredDatums #-}
+{-# NOINLINE requiredDatums #-}
 requiredDatums :: forall i o. TxConstraints i o -> [Datum]
 requiredDatums = foldMap f . txConstraints where
     f (MustIncludeDatum dv) = [dv]
     f _                     = []
 
-{-# INLINABLE modifiesUtxoSet #-}
+{-# NOINLINE modifiesUtxoSet #-}
 -- | Check whether every transaction that satisfies the constraints has to
 --   modify the UTXO set.
 modifiesUtxoSet :: forall i o. TxConstraints i o -> Bool

@@ -113,7 +113,7 @@ scriptInstance cmp = Scripts.validator @Crowdfunding
     where
         wrap = Scripts.wrapValidator @PubKeyHash @CampaignAction
 
-{-# INLINABLE validRefund #-}
+{-# NOINLINE validRefund #-}
 validRefund :: Campaign -> PubKeyHash -> TxInfo -> Bool
 validRefund campaign contributor txinfo =
     -- Check that the transaction falls in the refund range of the campaign

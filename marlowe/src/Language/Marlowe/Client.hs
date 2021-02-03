@@ -343,7 +343,7 @@ rolePayoutScript symbol = mkValidatorScript ($$(PlutusTx.compile [|| wrapped ||]
     wrapped s = Scripts.wrapValidator (rolePayoutValidator s)
 
 
-{-# INLINABLE rolePayoutValidator #-}
+{-# NOINLINE rolePayoutValidator #-}
 rolePayoutValidator :: CurrencySymbol -> TokenName -> () -> ValidatorCtx -> Bool
 rolePayoutValidator currency role _ ctx =
     Val.valueOf (valueSpent (valCtxTxInfo ctx)) currency role P.> 0
@@ -366,7 +366,7 @@ defaultMarloweParams :: MarloweParams
 defaultMarloweParams = marloweParams adaSymbol
 
 
-{-# INLINABLE mkMarloweStateMachineTransition #-}
+{-# NOINLINE mkMarloweStateMachineTransition #-}
 mkMarloweStateMachineTransition
     :: MarloweParams
     -> SM.State MarloweData
@@ -460,12 +460,12 @@ mkMarloweStateMachineTransition params SM.State{ SM.stateData=MarloweData{..}, S
         paymentByParty (Payment party money) = AssocMap.singleton party money
 
 
-{-# INLINABLE isFinal #-}
+{-# NOINLINE isFinal #-}
 isFinal :: MarloweData -> Bool
 isFinal MarloweData{marloweContract=c} = c P.== Close
 
 
-{-# INLINABLE mkValidator #-}
+{-# NOINLINE mkValidator #-}
 mkValidator :: MarloweParams -> Scripts.ValidatorType MarloweStateMachine
 mkValidator p = SM.mkValidator $ SM.mkStateMachine (mkMarloweStateMachineTransition p) isFinal
 

@@ -172,7 +172,7 @@ instance Scripts.ScriptType Escrow where
 PlutusTx.makeIsData ''Action
 PlutusTx.makeLift ''Action
 
-{-# INLINABLE meetsTarget #-}
+{-# NOINLINE meetsTarget #-}
 -- | @ptx `meetsTarget` tgt@ if @ptx@ pays at least @targetValue tgt@ to the
 --   target address.
 --
@@ -193,7 +193,7 @@ meetsTarget ptx = \case
                 && traceIfFalse "value" (vl' `geq` vl)
             _ -> False
 
-{-# INLINABLE validate #-}
+{-# NOINLINE validate #-}
 validate :: EscrowParams DatumHash -> PubKeyHash -> Action -> ValidatorCtx -> Bool
 validate EscrowParams{escrowDeadline, escrowTargets} contributor action ValidatorCtx{valCtxTxInfo} =
     case action of

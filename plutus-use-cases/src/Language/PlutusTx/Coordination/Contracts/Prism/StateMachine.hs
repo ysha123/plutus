@@ -60,7 +60,7 @@ data UserCredential =
         } deriving stock (Haskell.Eq, Show, Generic)
           deriving anyclass (ToJSON, FromJSON, Hashable)
 
-{-# INLINABLE transition #-}
+{-# NOINLINE transition #-}
 transition :: UserCredential -> State IDState -> IDAction -> Maybe (TxConstraints Void Void, State IDState)
 transition UserCredential{ucAddress, ucCredential, ucToken} State{stateData=state, stateValue=currentValue} input =
     case (state, input) of
@@ -77,7 +77,7 @@ transition UserCredential{ucAddress, ucCredential, ucToken} State{stateData=stat
                 )
         _ -> Nothing
 
-{-# INLINABLE credentialStateMachine #-}
+{-# NOINLINE credentialStateMachine #-}
 credentialStateMachine ::
   UserCredential
   -> StateMachine IDState IDAction
