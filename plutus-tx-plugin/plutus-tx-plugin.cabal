@@ -42,7 +42,7 @@ library
         Language.PlutusTx.Plugin
         Language.PlutusTx.Compiler.Error
     other-modules:
-        Language.PlutusTx.LoadBind
+        Language.PlutusTx.LookupIface
         Language.PlutusTx.PLCTypes
         Language.PlutusTx.PIRTypes
         Language.PlutusTx.Compiler.Binders

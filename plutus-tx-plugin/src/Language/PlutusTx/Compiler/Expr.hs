@@ -457,29 +457,19 @@ compileExpr e = withContextM 2 (sdToTxt $ "Compiling expr:" GHC.<+> GHC.ppr e) $
         GHC.Var (GHC.idDetails -> GHC.PrimOpId po) -> compilePrimitiveOp po
         GHC.Var (GHC.idDetails -> GHC.DataConWorkId dc) -> compileDataConRef dc
 
+        -- TODO: switch to using Alternative
         GHC.Var n -> do
-            -- todo: switch to alternative?
-            -- PIR.lookupTerm () (LexName $ GHC.getName n)
-            -- <|>
-            -- (lookupBind >>= lookup assoc >>= hoistExpr)
-            -- <|>
-            -- (try old unfolding)
-            -- <|>
-            -- (try class > 2 params)
-            -- <|>
-            -- throw CompilationError
-
             -- Defined names, including builtin names
             maybeDef <- PIR.lookupTerm () (LexName $ GHC.getName n)
             case maybeDef of
                 Just term -> pure term
                 Nothing -> do
-                    lookupBind <- asks ccLookupBind
-                    mbind <- liftIO . lookupBind $ GHC.getName n
+                    lookupBindFn <- asks ccLookupIf
+                    mbind <- liftIO . lookupBindFn $ GHC.getName n
                     case mbind of
                         Just b ->
                             case lookup n $ bindAssocs b of
-                                Nothing -> oldApproach n
+                                Nothing   -> oldApproach n
                                 Just expr -> hoistExpr n expr
                         Nothing -> oldApproach n
 
@@ -581,7 +571,7 @@ into a single rhs equation, using an extra `case`.
 -}
 bindAssocs :: GHC.CoreBind -> [(GHC.Var, GHC.CoreExpr)]
 bindAssocs (GHC.NonRec n expr) = [(n,expr)]
-bindAssocs (GHC.Rec eqs) = eqs
+bindAssocs (GHC.Rec eqs)       = eqs
 
 compileExprWithDefs
     :: CompilingDefault uni fun m

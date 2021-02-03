@@ -52,6 +52,9 @@
           ];
         buildable = true;
         modules = [
+          "Language/PlutusTx/LookupIface"
+          "Language/PlutusTx/PLCTypes"
+          "Language/PlutusTx/PIRTypes"
           "Language/PlutusTx/Compiler/Binders"
           "Language/PlutusTx/Compiler/Builtins"
           "Language/PlutusTx/Compiler/Expr"
@@ -62,8 +65,6 @@
           "Language/PlutusTx/Compiler/Type"
           "Language/PlutusTx/Compiler/Types"
           "Language/PlutusTx/Compiler/Utils"
-          "Language/PlutusTx/PIRTypes"
-          "Language/PlutusTx/PLCTypes"
           "Language/PlutusTx/Plugin"
           "Language/PlutusTx/Compiler/Error"
           ];

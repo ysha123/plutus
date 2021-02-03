@@ -17,10 +17,10 @@ import           Language.PlutusTx.Compiler.Error
 import           Language.PlutusTx.Compiler.Expr
 import           Language.PlutusTx.Compiler.Types
 import           Language.PlutusTx.Compiler.Utils
+import           Language.PlutusTx.LookupIface
 import           Language.PlutusTx.PIRTypes
 import           Language.PlutusTx.PLCTypes
 import           Language.PlutusTx.Plugin.Utils
-import           Language.PlutusTx.LoadBind
 
 import qualified GhcPlugins                             as GHC
 import qualified Panic                                  as GHC
@@ -66,7 +66,7 @@ data PluginCtx = PluginCtx
     { pcOpts       :: PluginOptions
     , pcFamEnvs    :: GHC.FamInstEnvs
     , pcMarkerName :: GHC.Name
-    , pcLookupBind :: GHC.Name -> IO (Maybe GHC.CoreBind)
+    , pcLookupIf   :: GHC.Name -> IO (Maybe GHC.CoreBind)
     }
 
 {- Note [Making sure unfoldings are present]
@@ -162,12 +162,12 @@ mkPluginPass opts = GHC.CoreDoPluginPass "Core to PLC" $ \ guts -> do
             p_fam_env <- GHC.getPackageFamInstEnv
 
             env    <- GHC.getHscEnv
-            lookupBindFn <- liftIO $ newLoadBind env guts
+            lookupIfFn <- liftIO $ mkLookupIf env guts
 
             let pctx = PluginCtx { pcOpts = opts
                                  , pcFamEnvs = (p_fam_env, GHC.mg_fam_inst_env guts)
                                  , pcMarkerName = markerName
-                                 , pcLookupBind = lookupBindFn
+                                 , pcLookupIf = lookupIfFn
                                  }
                 -- start looking for plc calls from the top-level binds
             GHC.bindsOnlyPass (runPluginM pctx . traverse compileBind) guts
@@ -279,7 +279,7 @@ compileMarkedExpr locStr codeTy origE = do
     flags <- GHC.getDynFlags
     famEnvs <- asks pcFamEnvs
     opts <- asks pcOpts
-    lookupBindFn <- asks pcLookupBind
+    lookupIfFn <- asks pcLookupIf
     -- We need to do this out here, since it has to run in CoreM
     nameInfo <- makePrimitiveNameInfo builtinNames
     let ctx = CompileContext {
@@ -289,7 +289,7 @@ compileMarkedExpr locStr codeTy origE = do
             ccBuiltinNameInfo = nameInfo,
             ccScopes = initialScopeStack,
             ccBlackholed = mempty,
-            ccLookupBind = lookupBindFn
+            ccLookupIf = lookupIfFn
             }
 
     (pirP,uplcP) <- runQuoteT . flip runReaderT ctx $ withContextM 1 (sdToTxt $ "Compiling expr at" GHC.<+> GHC.text locStr) $ runCompiler opts origE
