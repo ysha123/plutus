@@ -8,9 +8,7 @@ This file contains
 
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
 {-# LANGUAGE DeriveAnyClass            #-}
-{-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE DeriveFunctor             #-}
-{-# LANGUAGE DerivingVia               #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances         #-}
 {-# LANGUAGE LambdaCase                #-}
@@ -80,7 +78,7 @@ data TypeG tyname
   | TyBuiltinG TypeBuiltinG
   | TyLamG (TypeG (S tyname))
   | TyAppG (TypeG tyname) (TypeG tyname) (Kind ())
-  deriving (Typeable, Eq, Ord, Show, Functor)
+  deriving (Eq, Ord, Show, Functor)
 
 deriving instance Ord (Kind ())
 
@@ -174,7 +172,7 @@ data TermG tyname name
     | WrapG (TermG tyname name)
     | UnWrapG (TypeG tyname) (Kind ()) (TypeG tyname) (TermG tyname name)
     | ErrorG (TypeG tyname)
-    deriving (Typeable, Eq, Show)
+    deriving (Eq, Show)
 
 deriveBifunctor ''TermG
 deriveEnumerable ''TermG

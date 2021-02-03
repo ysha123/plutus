@@ -5,7 +5,6 @@ generating Plutus Core types and terms.
 
 -}
 
-{-# LANGUAGE DeriveDataTypeable  #-}
 {-# LANGUAGE EmptyCase           #-}
 {-# LANGUAGE EmptyDataDeriving   #-}
 {-# LANGUAGE FlexibleContexts    #-}
@@ -36,13 +35,13 @@ import           Language.PlutusCore.Quote (MonadQuote (..), freshName)
 
 -- empty type
 data Z
-  deriving (Typeable, Eq, Ord, Show)
+  deriving (Eq, Ord, Show)
 
 -- maybe type
 data S n
   = FZ
   | FS n
-  deriving (Typeable, Eq, Ord, Show, Functor)
+  deriving (Eq, Ord, Show, Functor)
 
 instance Enumerable Z where
   enumerate = datatype []
