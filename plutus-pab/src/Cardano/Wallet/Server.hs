@@ -17,6 +17,7 @@ import qualified Cardano.ChainIndex.Client       as ChainIndexClient
 import qualified Cardano.Node.Client             as NodeClient
 import           Cardano.Wallet.API              (API)
 import           Cardano.Wallet.Mock
+import           Cardano.Wallet.Types
 import           Cardano.Wallet.Types            (ChainIndexUrl, Config (..), NodeUrl, WalletMsg (..))
 import           Control.Concurrent.Availability (Availability, available)
 import           Control.Concurrent.MVar         (MVar, newMVar, putMVar, takeMVar)
@@ -108,8 +109,9 @@ app :: Trace IO WalletMsg -> ClientEnv -> ClientEnv -> MVar WalletState -> Appli
 app trace nodeClientEnv chainIndexEnv mVarState =
     serve (Proxy @API) $
     hoistServer (Proxy @API) (asHandler trace nodeClientEnv chainIndexEnv mVarState) $
-    (submitTxn >=> const (pure NoContent)) :<|> ownPubKey :<|> uncurry updatePaymentWithChange :<|>
-    walletSlot :<|> ownOutputs
+    (pure 0) :<|> (\_ -> submitTxn >=> const (pure NoContent)) :<|> (\_ -> ownPubKey) :<|>
+    (\_ -> uncurry updatePaymentWithChange) :<|>
+    (\_ -> walletSlot) :<|> (\_ -> ownOutputs)
 
 main :: Trace IO WalletMsg -> Config -> NodeUrl -> ChainIndexUrl -> Availability -> IO ()
 main trace Config {..} nodeBaseUrl chainIndexBaseUrl availability = runLogEffects trace $ do
