@@ -37,7 +37,8 @@ let
     optional stdenv.isLinux "-L${pkgs.numactl}/lib" ++
     # https://github.com/NixOS/nixpkgs/issues/46814
     optional stdenv.isDarwin "-liconv";
-  setGitRev = pkgs.runCommand "set-git-rev" { } ''
+  # Not sure why we need cctools on darwin, otherwise we get complaints about ghc not being able to find otool
+  setGitRev = pkgs.runCommand "set-git-rev" { nativeBuildInputs = pkgs.lib.optional stdenv.isDarwin [ pkgs.darwin.cctools ]; } ''
     # For some reason, recently you need to provide raw ghc compilation source files in the working directory
     cp ${./set-git-rev.hs} ./set-git-rev.hs
     ${ghcWithPackages (ps: [ ps.text ps.file-embed ])}/bin/ghc ${concatStringsSep " " flags} set-git-rev.hs

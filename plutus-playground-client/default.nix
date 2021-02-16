@@ -1,4 +1,4 @@
-{ pkgs, gitignore-nix, set-git-rev, haskell, webCommon, webCommonPlutus, webCommonPlayground, buildPursPackage, buildNodeModules, filterNpm }:
+{ pkgs, lib, gitignore-nix, set-git-rev, haskell, webCommon, webCommonPlutus, webCommonPlayground, buildPursPackage, buildNodeModules, filterNpm }:
 let
   playground-exe = set-git-rev haskell.packages.plutus-playground-server.components.exes.plutus-playground-server;
 
@@ -19,7 +19,8 @@ let
         --set GHC_LIB_DIR "${runtimeGhc}/lib/ghc-${runtimeGhc.version}" \
         --set GHC_BIN_DIR "${runtimeGhc}/bin" \
         --set GHC_PACKAGE_PATH "${runtimeGhc}/lib/ghc-${runtimeGhc.version}/package.conf.d" \
-        --set GHC_RTS "-M2G"
+        --set GHC_RTS "-M2G" \
+        --prefix PATH ${lib.makeBinPath (lib.optional pkgs.stdenv.isDarwin pkgs.darwin.cctools)}
     '';
 
   generated-purescript = pkgs.runCommand "plutus-playground-purescript" { } ''

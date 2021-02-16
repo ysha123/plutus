@@ -129,12 +129,6 @@ let
 
           # External package settings
 
-          # Using https connections ultimately requires x509. But on
-          # OSX, a pure build can't find the package. This is the
-          # solution used by the wallet build, and we reuse it here.
-          x509-system.components.library.preBuild = lib.optionalString (stdenv.isDarwin) ''
-            substituteInPlace System/X509/MacOS.hs --replace security /usr/bin/security
-          '';
           inline-r.package.ghcOptions = "-XStandaloneKindSignatures";
 
           eventful-sql-common.package.ghcOptions = "-XDerivingStrategies -XStandaloneDeriving -XUndecidableInstances -XDataKinds -XFlexibleInstances -XMultiParamTypeClasses";
