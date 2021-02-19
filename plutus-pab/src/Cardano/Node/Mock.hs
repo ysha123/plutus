@@ -13,10 +13,8 @@ import           Control.Concurrent.MVar           (MVar, modifyMVar_, putMVar, 
 import           Control.Lens                      (over, set, unto, view)
 import           Control.Monad                     (forever, unless, void)
 import           Control.Monad.Freer               (Eff, Member, interpret, reinterpret, runM, subsume)
-import           Control.Monad.Freer.Extras.Log    (LogMessage (..), LogMsg (..), handleLogWriter, logDebug, logInfo,
-                                                    mapLog)
+import           Control.Monad.Freer.Extras.Log
 import           Control.Monad.Freer.Extras.Modify (handleZoomedState)
-import           Control.Monad.Freer.Reader        (Reader)
 import qualified Control.Monad.Freer.Reader        as Eff
 import           Control.Monad.Freer.State         (State)
 import qualified Control.Monad.Freer.State         as Eff
@@ -30,7 +28,6 @@ import           Data.Time.Units.Extra             ()
 import           Servant                           (NoContent (NoContent))
 
 import           Cardano.BM.Data.Trace             (Trace)
-import           Cardano.Node.Follower             (NodeFollowerEffect)
 import           Cardano.Node.RandomTx
 import           Cardano.Node.Types
 import           Cardano.Protocol.ChainEffect      as CE
@@ -85,26 +82,6 @@ addTx tx = do
     logInfo $ BlockOperation $ NewTransaction tx
     Chain.queueTx tx
     pure NoContent
-
-
-
-type NodeServerEffects m
-     = '[ GenRandomTx
-        , LogMsg MockServerLogMsg
-        , NodeFollowerEffect
-        , LogMsg NodeFollowerLogMsg
-        , ChainControlEffect
-        , ChainEffect
-        , State NodeFollowerState
-        , State ChainState
-        , LogMsg MockServerLogMsg
-        , Reader Client.ClientHandler
-        , Reader Server.ServerHandler
-        , State AppState
-        , LogMsg MockServerLogMsg
-        , m]
-
-------------------------------------------------------------
 
 
 -- | Run all chain effects in the IO Monad
