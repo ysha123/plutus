@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecordWildCards       #-}
@@ -23,10 +24,10 @@ import qualified Cardano.ChainIndex.Client       as ChainIndexClient
 import qualified Cardano.Node.Client             as NodeClient
 import           Cardano.Wallet.API              (API)
 import           Cardano.Wallet.Mock
-import           Cardano.Wallet.Types            (ChainIndexUrl, Config (..), NodeUrl, WalletMsg (..), Wallets)
+import           Cardano.Wallet.Types            (ChainIndexUrl, Config (..), NodeUrl, WalletMsg (..), Wallets (..))
 import           Control.Concurrent.Availability (Availability, available)
 import           Control.Concurrent.MVar         (MVar, newMVar, putMVar, takeMVar)
-import           Control.Monad                   ((>=>))
+import           Control.Monad                   (foldM, (>=>))
 import qualified Control.Monad.Except            as MonadError
 import           Control.Monad.Freer
 import           Control.Monad.Freer.Error       (Error, handleError, runError, throwError)
@@ -41,6 +42,7 @@ import           Data.Function                   ((&))
 import qualified Data.Map.Strict                 as Map
 import           Data.Proxy                      (Proxy (Proxy))
 import           Data.Text                       (Text)
+import           Ledger                          (PubKeyHash, Tx, addSignature, pubKeyHash, toPublicKey)
 import           Network.HTTP.Client             (defaultManagerSettings, newManager)
 import qualified Network.Wai.Handler.Warp        as Warp
 import           Plutus.PAB.Arbitrary            ()
@@ -50,9 +52,9 @@ import           Servant                         (Application, Handler (Handler)
 import           Servant.Client                  (BaseUrl (baseUrlPort), ClientEnv, ClientError, mkClientEnv)
 import           Wallet.API                      (PubKey (..))
 import qualified Wallet.API                      as WAPI
-import           Wallet.Effects                  (ChainIndexEffect, NodeClientEffect, WalletEffect, ownOutputs,
-                                                  ownPubKey, startWatching, submitTxn, updatePaymentWithChange,
-                                                  walletSlot)
+import           Wallet.Effects                  (ChainIndexEffect, NodeClientEffect, SigningProcessEffect (..),
+                                                  WalletEffect, ownOutputs, ownPubKey, startWatching, submitTxn,
+                                                  updatePaymentWithChange, walletSlot)
 import           Wallet.Emulator.Error           (WalletAPIError)
 import           Wallet.Emulator.Wallet          (WalletState, emptyWalletState)
 import qualified Wallet.Emulator.Wallet          as Wallet
@@ -135,7 +137,7 @@ handleMutliWallet = do
     interpret $ \case
         MultiWallet wid action -> do
             wallets <- get @Wallets
-            case Map.lookup wid wallets of
+            case Map.lookup wid (widToPrivateKey wallets) of
                 Just (wallet, privateKey) -> do
                     let walletState = WalletState privateKey emptyNodeClientState mempty (defaultSigningProcess wallet)
                     s <- evalState walletState $ action
@@ -150,9 +152,31 @@ handleMutliWallet = do
             let walletId = byteString2Integer bytes
             let wallet = Wallet walletId
             let privateKey = PrivateKey (KB.fromBytes bytes)
-            let wallets' = Map.insert walletId (wallet, privateKey) wallets
+            let pkh = pubKeyHash (toPublicKey privateKey)
+            let wallets' = wallets
+                    { widToPrivateKey = Map.insert walletId (wallet, privateKey) (widToPrivateKey wallets)
+                    , pkhToPrivateKey = Map.insert pkh (wallet, privateKey) (pkhToPrivateKey wallets)
+                    }
             put wallets'
             return walletId
+
+
+handleSigningProcess :: forall effs.
+    ( Member (State Wallets) effs
+    , Member (Error WAPI.WalletAPIError) effs
+    ) => Eff (SigningProcessEffect ': effs) ~> Eff effs
+handleSigningProcess = interpret $ \case
+    AddSignatures sigs tx -> do
+        wllts <- get @Wallets
+        foldM (sign wllts) tx sigs
+  where
+    sign :: Wallets -> Tx -> PubKeyHash -> Eff effs Tx
+    sign Wallets{pkhToPrivateKey} tx pkh =
+        case Map.lookup pkh pkhToPrivateKey of
+            Just (_, privKey) -> pure $ addSignature privKey tx
+            Nothing           -> throwError $ WAPI.OtherError "Wallet not found"
+
+
 
 ------------------------------------------------------------
 -- | Run all handlers, affecting a single, global 'MVar WalletState'.
@@ -192,7 +216,7 @@ main :: Trace IO WalletMsg -> Config -> NodeUrl -> ChainIndexUrl -> Availability
 main trace Config {..} nodeBaseUrl chainIndexBaseUrl availability = runLogEffects trace $ do
     nodeClientEnv <- buildEnv nodeBaseUrl defaultManagerSettings
     chainIndexEnv <- buildEnv chainIndexBaseUrl defaultManagerSettings
-    mVarState <- liftIO $ newMVar mempty
+    mVarState <- liftIO $ newMVar (Wallets mempty mempty)
     runClient chainIndexEnv
     logInfo $ StartingWallet servicePort
     liftIO $ Warp.runSettings warpSettings $ app trace nodeClientEnv chainIndexEnv mVarState

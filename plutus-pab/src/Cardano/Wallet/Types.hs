@@ -16,7 +16,7 @@ import           Data.Map                      (Map)
 import           Data.Text                     (Text)
 import           Data.Text.Prettyprint.Doc     (Pretty (..), (<+>))
 import           GHC.Generics                  (Generic)
-import           Ledger.Crypto                 (PrivateKey)
+import           Ledger.Crypto                 (PrivateKey, PubKeyHash)
 import           Servant.Client                (BaseUrl)
 import           Wallet.Emulator.Wallet        (Wallet)
 
@@ -25,7 +25,10 @@ type ChainIndexUrl = BaseUrl
 type WalletId = Integer
 type Port     = Int
 
-type Wallets = Map WalletId (Wallet, PrivateKey)
+data Wallets = Wallets
+    { widToPrivateKey :: Map WalletId (Wallet, PrivateKey)
+    , pkhToPrivateKey :: Map PubKeyHash (Wallet, PrivateKey)
+    }
 
 data Amount =
     Amount
