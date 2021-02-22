@@ -18,7 +18,7 @@ import           Data.Text.Prettyprint.Doc     (Pretty (..), (<+>))
 import           GHC.Generics                  (Generic)
 import           Ledger.Crypto                 (PrivateKey)
 import           Servant.Client                (BaseUrl)
-import           Wallet.Emulator.Wallet        (Wallet, WalletState)
+import           Wallet.Emulator.Wallet        (Wallet)
 
 type NodeUrl = BaseUrl
 type ChainIndexUrl = BaseUrl

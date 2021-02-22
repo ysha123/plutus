@@ -144,7 +144,6 @@
           "Cardano/Wallet/API"
           "Cardano/Wallet/Client"
           "Cardano/Wallet/Mock"
-          "Cardano/Wallet/MultiUserServer"
           "Cardano/Wallet/Server"
           "Cardano/Wallet/Types"
           "Control/Monad/Freer/Delay"
