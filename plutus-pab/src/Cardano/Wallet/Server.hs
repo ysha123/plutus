@@ -14,6 +14,8 @@
 module Cardano.Wallet.Server
     ( main
     , Config(..)
+    , integer2ByteString32
+    , byteString2Integer
     ) where
 
 import           Cardano.BM.Data.Trace           (Trace)
