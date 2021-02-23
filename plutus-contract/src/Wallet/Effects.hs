@@ -21,6 +21,7 @@ module Wallet.Effects(
     , updatePaymentWithChange
     , walletSlot
     , ownOutputs
+    , walletAddSignature
     -- * Node client
     , NodeClientEffect(..)
     , publishTx
@@ -57,6 +58,7 @@ data WalletEffect r where
     UpdatePaymentWithChange :: Value -> Payment -> WalletEffect Payment
     WalletSlot :: WalletEffect Slot
     OwnOutputs :: WalletEffect UtxoMap
+    WalletAddSignature :: Tx -> WalletEffect Tx
 makeEffect ''WalletEffect
 
 data MultiWalletEffect r where

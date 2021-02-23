@@ -29,20 +29,23 @@ ownPublicKey :: Integer -> ClientM PubKey
 updatePaymentWithChange :: Integer -> (Value, Payment) -> ClientM Payment
 walletSlot :: Integer -> ClientM Slot
 ownOutputs :: Integer -> ClientM UtxoMap
-(createWallet, submitTxn, ownPublicKey, updatePaymentWithChange, walletSlot, ownOutputs) =
+sign :: Integer -> Tx -> ClientM Tx
+(createWallet, submitTxn, ownPublicKey, updatePaymentWithChange, walletSlot, ownOutputs, sign) =
   ( createWallet_
   , \wid tx -> void (submitTxn_ wid tx)
   , ownPublicKey_
   , updatePaymentWithChange_
   , walletSlot_
-  , ownOutputs_)
+  , ownOutputs_
+  , sign_)
   where
     ( createWallet_
       :<|> submitTxn_
       :<|> ownPublicKey_
       :<|> updatePaymentWithChange_
       :<|> walletSlot_
-      :<|> ownOutputs_) = client (Proxy @API)
+      :<|> ownOutputs_
+      :<|> sign_) = client (Proxy @API)
 
 handleWalletClient ::
   forall m effs.
@@ -65,3 +68,4 @@ handleWalletClient clientEnv walletId =
         UpdatePaymentWithChange vl pmt -> runClient $ updatePaymentWithChange walletId (vl, pmt)
         WalletSlot                     -> runClient $ walletSlot walletId
         OwnOutputs                     -> runClient $ ownOutputs walletId
+        WalletAddSignature tx          -> runClient $ sign walletId tx

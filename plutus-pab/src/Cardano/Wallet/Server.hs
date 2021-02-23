@@ -68,7 +68,8 @@ import           Plutus.PAB.Monitoring           (runLogEffects)
 import qualified Plutus.V1.Ledger.Bytes          as KB
 import           Wallet.Effects                  (ChainIndexEffect, MultiWalletEffect (..), NodeClientEffect,
                                                   WalletEffect, createWallet, multiWallet, ownOutputs, ownPubKey,
-                                                  startWatching, submitTxn, updatePaymentWithChange, walletSlot)
+                                                  startWatching, submitTxn, updatePaymentWithChange, walletAddSignature,
+                                                  walletSlot)
 import           Wallet.Emulator.Error           (WalletAPIError)
 import           Wallet.Emulator.NodeClient      (emptyNodeClientState)
 import           Wallet.Emulator.Wallet          (SigningProcess (..), Wallet (..), WalletState (..),
@@ -209,8 +210,12 @@ app trace nodeClientEnv chainIndexEnv mVarState =
     serve (Proxy @API) $
     hoistServer (Proxy @API) (asHandler trace nodeClientEnv chainIndexEnv mVarState) $
     (createWallet) :<|>
-    (\w tx -> multiWallet w (submitTxn tx) >>= const (pure NoContent)) :<|> (\w -> multiWallet w ownPubKey) :<|> (\w -> multiWallet w . (uncurry updatePaymentWithChange)) :<|>
-        (\w -> multiWallet w walletSlot) :<|> (\w -> multiWallet w ownOutputs)
+    (\w tx -> multiWallet w (submitTxn tx) >>= const (pure NoContent)) :<|>
+    (\w -> multiWallet w ownPubKey) :<|>
+    (\w -> multiWallet w . (uncurry updatePaymentWithChange)) :<|>
+    (\w -> multiWallet w walletSlot) :<|>
+    (\w -> multiWallet w ownOutputs) :<|>
+    (\w tx -> multiWallet w (walletAddSignature tx))
 
 main :: Trace IO WalletMsg -> Config -> NodeUrl -> ChainIndexUrl -> Availability -> IO ()
 main trace Config {..} nodeBaseUrl chainIndexBaseUrl availability = runLogEffects trace $ do
