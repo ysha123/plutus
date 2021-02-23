@@ -61,7 +61,6 @@ import           Cardano.BM.Data.Trace                           (Trace)
 import qualified Cardano.ChainIndex.Server                       as ChainIndex
 import qualified Cardano.Metadata.Server                         as Metadata
 import qualified Cardano.Node.Server                             as NodeServer
-import qualified Cardano.SigningProcess.Server                   as SigningProcess
 import qualified Cardano.Wallet.Server                           as WalletServer
 import           Control.Concurrent                              (threadDelay)
 import           Control.Concurrent.Async                        (Async, async, waitAny)
@@ -89,13 +88,11 @@ import qualified Plutus.PAB.Core.ContractInstance                as Instance
 import           Plutus.PAB.Events.Contract                      (ContractInstanceId (..))
 import           Plutus.PAB.PABLogMsg                            (AppMsg (..), ChainIndexServerMsg,
                                                                   ContractExeLogMsg (..), MetadataLogMessage,
-                                                                  MockServerLogMsg, PABLogMsg (..), SigningProcessMsg,
-                                                                  WalletMsg)
+                                                                  MockServerLogMsg, PABLogMsg (..), WalletMsg)
 import           Plutus.PAB.Types                                (Config (Config), ContractExe (..), PABError,
                                                                   RequestProcessingConfig (..), chainIndexConfig,
                                                                   metadataServerConfig, nodeServerConfig,
-                                                                  requestProcessingConfig, signingProcessConfig,
-                                                                  walletServerConfig)
+                                                                  requestProcessingConfig, walletServerConfig)
 import           Plutus.PAB.Utils                                (render)
 import qualified Plutus.PAB.Webserver.Server                     as PABServer
 
@@ -171,14 +168,6 @@ runCliCommand t _ Config {nodeServerConfig, chainIndexConfig} serviceAvailabilit
         (NodeServer.mscBaseUrl nodeServerConfig)
         serviceAvailability
 
-
--- Run the signing-process service
-runCliCommand t _ Config {signingProcessConfig} serviceAvailability SigningProcess =
-    liftIO $ SigningProcess.main
-        (toSigningProcessLog t)
-        signingProcessConfig
-        serviceAvailability
-
 -- Install a contract
 runCliCommand _ _ _ _ (InstallContract path) = Core.installContract (ContractExe path)
 
@@ -242,9 +231,6 @@ toPABMsg = convertLog PABMsg
 
 toChainIndexLog :: Trace m AppMsg -> Trace m ChainIndexServerMsg
 toChainIndexLog = convertLog $ PABMsg . SChainIndexServerMsg
-
-toSigningProcessLog :: Trace m AppMsg -> Trace m SigningProcessMsg
-toSigningProcessLog = convertLog $ PABMsg . SSigningProcessMsg
 
 toWalletLog :: Trace m AppMsg -> Trace m WalletMsg
 toWalletLog = convertLog $ PABMsg . SWalletMsg

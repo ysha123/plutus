@@ -52,9 +52,9 @@ import           Servant                         (Application, Handler (Handler)
 import           Servant.Client                  (BaseUrl (baseUrlPort), ClientEnv, ClientError, mkClientEnv)
 import           Wallet.API                      (PubKey (..))
 import qualified Wallet.API                      as WAPI
-import           Wallet.Effects                  (ChainIndexEffect, NodeClientEffect, SigningProcessEffect (..),
-                                                  WalletEffect, ownOutputs, ownPubKey, startWatching, submitTxn,
-                                                  updatePaymentWithChange, walletSlot)
+import           Wallet.Effects                  (ChainIndexEffect, NodeClientEffect, WalletEffect, ownOutputs,
+                                                  ownPubKey, startWatching, submitTxn, updatePaymentWithChange,
+                                                  walletSlot)
 import           Wallet.Emulator.Error           (WalletAPIError)
 import           Wallet.Emulator.Wallet          (WalletState, emptyWalletState)
 import qualified Wallet.Emulator.Wallet          as Wallet

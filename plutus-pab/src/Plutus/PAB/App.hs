@@ -29,8 +29,6 @@ import           Cardano.Node.Client                (handleNodeClientClient, han
 import           Cardano.Node.Follower              (NodeFollowerEffect)
 import           Cardano.Node.RandomTx              (GenRandomTx)
 import qualified Cardano.Node.Server                as NodeServer
-import qualified Cardano.SigningProcess.Client      as SigningProcessClient
-import qualified Cardano.SigningProcess.Server      as SigningProcess
 import qualified Cardano.Wallet.Client              as WalletClient
 import qualified Cardano.Wallet.Server              as WalletServer
 import           Control.Monad.Catch                (MonadCatch)
@@ -69,14 +67,14 @@ import           Plutus.PAB.PABLogMsg               (ContractExeLogMsg (..), PAB
 import           Plutus.PAB.ParseStringifiedJSON    (UnStringifyJSONLog)
 import           Plutus.PAB.Types                   (Config (Config), ContractExe (..), PABError (..), chainIndexConfig,
                                                      dbConfig, metadataServerConfig, nodeServerConfig,
-                                                     signingProcessConfig, walletServerConfig)
+                                                     walletServerConfig)
 import           Plutus.PAB.Webserver.Types         (WebSocketLogMsg)
 import           Servant.Client                     (BaseUrl, ClientEnv, ClientError, mkClientEnv)
 import           System.Exit                        (ExitCode (ExitFailure, ExitSuccess))
 import           System.Process                     (readProcessWithExitCode)
 import           Wallet.API                         (WalletAPIError)
 import           Wallet.Effects                     (ChainIndexEffect, ContractRuntimeEffect, NodeClientEffect,
-                                                     SigningProcessEffect, WalletEffect)
+                                                     WalletEffect)
 import           Wallet.Emulator.Wallet             (Wallet (..))
 import qualified Wallet.Emulator.Wallet
 
@@ -88,7 +86,6 @@ data Env =
         , walletClientEnv   :: ClientEnv
         , nodeClientEnv     :: ClientEnv
         , metadataClientEnv :: ClientEnv
-        , signingProcessEnv :: ClientEnv
         , chainIndexEnv     :: ClientEnv
         }
 
@@ -104,8 +101,6 @@ type AppBackend m =
          , Error ClientError
          , MetadataEffect
          , Error Metadata.MetadataError
-         , SigningProcessEffect
-         , Error ClientError
          , UUIDEffect
          , ContractEffect ContractExe
          , ChainIndexEffect
@@ -145,7 +140,6 @@ runAppBackend trace loggingConfig config action = do
             , nodeClientEnv
             , metadataClientEnv
             , walletClientEnv
-            , signingProcessEnv
             , chainIndexEnv
             } <- mkEnv config
     let
@@ -154,11 +148,6 @@ runAppBackend trace loggingConfig config action = do
         handleChainIndex =
             flip handleError (throwError . ChainIndexError) .
             handleChainIndexClient chainIndexEnv
-        handleSigningProcess ::
-               Eff (SigningProcessEffect ': Error ClientError ': _) a -> Eff _ a
-        handleSigningProcess =
-            flip handleError (throwError . SigningProcessError) .
-            SigningProcessClient.handleSigningProcessClient signingProcessEnv
         handleNodeClient ::
                Eff (NodeClientEffect ': Error ClientError ': _) a -> Eff _ a
         handleNodeClient =
@@ -202,7 +191,6 @@ runAppBackend trace loggingConfig config action = do
         . handleChainIndex
         . handleContractEffectApp
         . handleUUIDEffect
-        . handleSigningProcess
         . handleMetadata
         . handleNodeClient
         . handleWallet
@@ -217,14 +205,11 @@ mkEnv Config { dbConfig
              , nodeServerConfig
              , metadataServerConfig
              , walletServerConfig
-             , signingProcessConfig
              , chainIndexConfig
              } = do
     walletClientEnv <- clientEnv (WalletServer.baseUrl walletServerConfig)
     nodeClientEnv <- clientEnv (NodeServer.mscBaseUrl nodeServerConfig)
     metadataClientEnv <- clientEnv (Metadata.mdBaseUrl metadataServerConfig)
-    signingProcessEnv <-
-        clientEnv (SigningProcess.spBaseUrl signingProcessConfig)
     chainIndexEnv <- clientEnv (ChainIndex.ciBaseUrl chainIndexConfig)
     dbConnection <- dbConnect dbConfig
     pure Env {..}
