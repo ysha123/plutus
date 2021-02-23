@@ -3,13 +3,12 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE TypeApplications      #-}
 
 module Cardano.Wallet.Server
     ( main
-    , Config(..)
     ) where
 
 import           Control.Monad                   ((>=>))
@@ -29,7 +28,8 @@ import           Cardano.BM.Data.Trace           (Trace)
 import qualified Cardano.ChainIndex.Client       as ChainIndexClient
 import           Cardano.Wallet.API              (API)
 import           Cardano.Wallet.Mock
-import           Cardano.Wallet.Types            (ChainIndexUrl, Config (..), NodeUrl, WalletMsg (..))
+import           Cardano.Wallet.Types            (ChainIndexUrl (..), NodeUrl (..), Port (..), WalletConfig (..),
+                                                  WalletMsg (..))
 import           Control.Concurrent.Availability (Availability, available)
 import           Control.Concurrent.MVar         (MVar, newMVar)
 import           Plutus.PAB.Arbitrary            ()
@@ -47,17 +47,17 @@ app trace nodeClientEnv chainIndexEnv mVarState =
     serve (Proxy @API) $
     hoistServer
         (Proxy @API)
-        (asHandler trace nodeClientEnv chainIndexEnv mVarState)
+        (processWalletEffects trace nodeClientEnv chainIndexEnv mVarState)
          ((submitTxn >=> const (pure NoContent)) :<|> ownPubKey :<|> uncurry updatePaymentWithChange :<|>
           walletSlot :<|> ownOutputs)
 
-main :: Trace IO WalletMsg -> Config -> NodeUrl -> ChainIndexUrl -> Availability -> IO ()
-main trace Config {..} nodeBaseUrl chainIndexBaseUrl availability = runLogEffects trace $ do
-    nodeClientEnv <- buildEnv nodeBaseUrl defaultManagerSettings
-    chainIndexEnv <- buildEnv chainIndexBaseUrl defaultManagerSettings
+main :: Trace IO WalletMsg -> WalletConfig -> NodeUrl -> ChainIndexUrl -> Availability -> IO ()
+main trace WalletConfig { baseUrl, wallet } (NodeUrl nodeUrl) (ChainIndexUrl chainUrl) availability = runLogEffects trace $ do
+    nodeClientEnv <- buildEnv nodeUrl defaultManagerSettings
+    chainIndexEnv <- buildEnv chainUrl defaultManagerSettings
     mVarState <- liftIO $ newMVar state
     runClient chainIndexEnv
-    logInfo $ StartingWallet servicePort
+    logInfo $ StartingWallet (Port servicePort)
     liftIO $ Warp.runSettings warpSettings $ app trace nodeClientEnv chainIndexEnv mVarState
     where
         servicePort = baseUrlPort baseUrl
