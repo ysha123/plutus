@@ -42,7 +42,7 @@ import           Data.Function                   ((&))
 import qualified Data.Map.Strict                 as Map
 import           Data.Proxy                      (Proxy (Proxy))
 import           Data.Text                       (Text)
-import           Ledger                          (PubKeyHash, Tx, addSignature, pubKeyHash, toPublicKey)
+import           Ledger                          (PubKeyHash, Tx, addSignature, getPubKeyHash, pubKeyHash, toPublicKey)
 import           Network.HTTP.Client             (defaultManagerSettings, newManager)
 import qualified Network.Wai.Handler.Warp        as Warp
 import           Plutus.PAB.Arbitrary            ()
@@ -150,10 +150,10 @@ handleMutliWallet = do
             wallets <- get @Wallets
             Seed seed <- generateSeed
             let bytes = BS.pack . unpack $ seed
-            let walletId = byteString2Integer bytes
-            let wallet = Wallet walletId
             let privateKey = PrivateKey (KB.fromBytes bytes)
             let pkh = pubKeyHash (toPublicKey privateKey)
+            let walletId = byteString2Integer (getPubKeyHash pkh)
+            let wallet = Wallet walletId
             let wallets' = wallets
                     { widToPrivateKey = Map.insert walletId (wallet, privateKey) (widToPrivateKey wallets)
                     , pkhToPrivateKey = Map.insert pkh (wallet, privateKey) (pkhToPrivateKey wallets)
