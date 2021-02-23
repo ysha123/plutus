@@ -162,23 +162,6 @@ handleMutliWallet = do
             return walletId
 
 
-handleSigningProcess :: forall effs.
-    ( Member (State Wallets) effs
-    , Member (Error WAPI.WalletAPIError) effs
-    ) => Eff (SigningProcessEffect ': effs) ~> Eff effs
-handleSigningProcess = interpret $ \case
-    AddSignatures sigs tx -> do
-        wllts <- get @Wallets
-        foldM (sign wllts) tx sigs
-  where
-    sign :: Wallets -> Tx -> PubKeyHash -> Eff effs Tx
-    sign Wallets{pkhToPrivateKey} tx pkh =
-        case Map.lookup pkh pkhToPrivateKey of
-            Just (_, privKey) -> pure $ addSignature privKey tx
-            Nothing           -> throwError $ WAPI.OtherError "Wallet not found"
-
-
-
 ------------------------------------------------------------
 -- | Run all handlers, affecting a single, global 'MVar WalletState'.
 --
